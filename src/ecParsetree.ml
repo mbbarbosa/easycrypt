@@ -1285,7 +1285,6 @@ type threquire =
 (* -------------------------------------------------------------------- *)
 type global_action =
   | Gmodule      of pmodule_def_or_decl
-  | Gqmodule     of pqmodule_decl
   | Ginterface   of pinterface
   | Goperator    of poperator
   | Gprocop      of pprocop

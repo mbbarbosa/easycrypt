@@ -2458,7 +2458,7 @@ and transstruct1 (env : EcEnv.env) (st : pstructure_item located) =
       (* Type-check body *)
       let retty = transty tp_uni env ue decl.pfd_tyresult in
       let (env, stmt, result, prelude, locals) =
-        transbody ue memenv env retty (mk_loc st.pl_loc body) is_qfun
+        transbody ue memenv env retty (mk_loc st.pl_loc body) 
       in
       (* Close all types *)
       let ts      = Tuni.subst (UE.assubst ue) in
@@ -2474,7 +2474,9 @@ and transstruct1 (env : EcEnv.env) (st : pstructure_item located) =
       let stmt    = s_subst clsubst stmt
       and result  = result |> omap (e_subst clsubst) in
       let stmt    = EcModules.stmt (List.flatten prelude @ stmt.s_node) in
-
+      
+      if not (check_quantumness stmt is_qfun) then
+        tyerror st.pl_loc env InvalidInstrForQProc;
       (* Computes reads/writes/calls *)
       let uses = result |> ofold ((^~) se_inuse) (s_inuse stmt) in
 
@@ -2560,7 +2562,7 @@ and transstruct1_alias env name f =
   (name, MI_Function fun_)
 
 (* -------------------------------------------------------------------- *)
-and transbody ue memenv (env : EcEnv.env) retty pbody is_qfun =
+and transbody ue memenv (env : EcEnv.env) retty pbody =
   let { pl_loc = loc; pl_desc = pbody; } = pbody in
 
   let prelude = ref []
@@ -2607,7 +2609,7 @@ and transbody ue memenv (env : EcEnv.env) retty pbody is_qfun =
   let memenv = List.fold_left add_local memenv pbody.pfb_locals in
   let env = EcEnv.Memory.push_active_ss memenv env in
 
-  let body   = transstmt ~is_qfun env ue pbody.pfb_body in
+  let body   = transstmt env ue pbody.pfb_body in
   let result =
     match pbody.pfb_return with
     | None ->
@@ -2670,20 +2672,20 @@ and fundef_check_iasgn subst_uni env ((mode, pl), init, loc) =
 
 (* -------------------------------------------------------------------- *)
 and transstmt
-  ?(map : ismap = Mstr.empty) ?(is_qfun = false) (env : EcEnv.env) ue (stmt : pstmt) : stmt
+  ?(map : ismap = Mstr.empty) (env : EcEnv.env) ue (stmt : pstmt) : stmt
 =
   let l_start =
     Mstr.find_def [] EcTransMatching.default_start_name map in
   let l_end =
     Mstr.find_def [] EcTransMatching.default_end_name   map in
-  let instr_list_list = List.map (transinstr ~map env is_qfun ue) stmt in
+  let instr_list_list = List.map (transinstr ~map env ue) stmt in
   let instr_list_list = instr_list_list @ [l_end] in
   let instr_list_list = l_start :: instr_list_list in
   EcModules.stmt (List.flatten instr_list_list)
 
 (* -------------------------------------------------------------------- *)
 and transinstr
-  ?(map : ismap = Mstr.empty) (env : EcEnv.env) is_qfun ue (i : pinstr) : instr list
+  ?(map : ismap = Mstr.empty) (env : EcEnv.env) ue (i : pinstr) : instr list
 =
   let transcall name args =
     let fpath = trans_gamepath env name in
@@ -2722,8 +2724,6 @@ and transinstr
     end
 
   | PSrnd (plvalue, prvalue) ->
-      if is_qfun then
-        tyerror i.pl_loc env (InvalidInstrForQProc);
       let lvalue, lty = translvalue ue env plvalue in
       let rvalue, rty = transexp env `InProc ue prvalue in
       unify_or_fail env ue prvalue.pl_loc ~expct:(tdistr lty) rty;
@@ -2740,8 +2740,6 @@ and transinstr
       [ i_call_lv i.pl_loc env lvalue fpath args ]
 
   | PSif ((pe, s), cs, sel) -> begin
-      if is_qfun then
-        tyerror i.pl_loc env (InvalidInstrForQProc);
       let rec for1_i (pe, s) sel =
         let e, ety = transexp env `InProc ue pe in
         let s = transstmt env ue s in
@@ -2755,16 +2753,12 @@ and transinstr
   end
 
   | PSwhile (pe, pbody) ->
-      if is_qfun then
-        tyerror i.pl_loc env (InvalidInstrForQProc);
       let e, ety = transexp env `InProc ue pe in
       let body = transstmt env ue pbody in
       unify_or_fail env ue pe.pl_loc ~expct:tbool ety;
       [ i_while (e, body) ]
 
   | PSmatch (pe, pbranches) -> begin
-      if is_qfun then
-        tyerror i.pl_loc env (InvalidInstrForQProc);
       let e, ety = transexp env `InProc ue pe in
       let uidmap = EcUnify.UniEnv.assubst ue in
       let ety = ty_subst (Tuni.subst uidmap) ety in
@@ -2803,8 +2797,6 @@ and transinstr
     end
 
   | PSassert pe ->
-      if is_qfun then
-        tyerror i.pl_loc env (InvalidInstrForQProc);
       let e, ety = transexp env `InProc ue pe in
       unify_or_fail env ue pe.pl_loc ~expct:tbool ety;
       [ i_assert e ]
@@ -3726,6 +3718,13 @@ and trans_codeoffset1 ?(memory: memory option) (env : EcEnv.env) (o : pcodeoffse
   | `ByOffset   i -> `ByOffset i
   | `ByPosition p -> `ByPosition (trans_codepos1 ?memory env p) 
 
+and check_quantumness stmt is_qfun =
+  let check_instr instr =
+    match instr.i_node with
+    | Sasgn _ | Scall _ -> true
+    | _ -> false
+  in
+  if is_qfun then List.for_all check_instr stmt.s_node else true
 (* -------------------------------------------------------------------- *)
 let get_instances (tvi, bty) env =
   let inst = List.pmap
@@ -3767,3 +3766,4 @@ let get_field (typ, ty) env =
         (get_instances (typ, ty) env);
       None
     with E.Found cr -> Some cr
+
