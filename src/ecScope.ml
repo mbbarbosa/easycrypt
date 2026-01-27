@@ -1748,6 +1748,8 @@ module Mod = struct
     let modty = m.ptm_modty in
     let name  = EcIdent.create (unloc m.ptm_name) in
     let tysig = fst (TT.transmodtype (env scope) modty.pmty_pq) in
+    if tysig.mt_quantum <> `Classical then
+      hierror "cannot declare a classical abstract module of quantum type";
     (* We modify tysig restrictions according if necessary. *)
     let tysig = trans_restr_for_modty (env scope) tysig modty.pmty_mem in
 
@@ -1758,6 +1760,8 @@ module Mod = struct
     let modty = m.ptm_modty in
     let name  = EcIdent.create (unloc m.ptm_name) in
     let tysig = fst (TT.transmodtype (env scope) modty.pmty_pq) in
+    if tysig.mt_quantum <> `Quantum then
+      hierror "cannot declare a quantum abstract module of classical type";
     (* We modify tysig restrictions according if necessary. *)
     let tysig = trans_restr_for_modty (env scope) tysig modty.pmty_mem in
 

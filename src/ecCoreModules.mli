@@ -160,6 +160,7 @@ type module_sig = {
 }
 
 type top_module_sig = {
+  tms_quantum : quantum;
   tms_sig  : module_sig;
   tms_loca : is_local;
 }

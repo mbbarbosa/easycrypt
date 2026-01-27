@@ -1405,8 +1405,9 @@ let lookup_fun env name =
 
 (* -------------------------------------------------------------------- *)
 let transmodtype (env : EcEnv.env) (modty : pmodule_type) =
-  let (p, { tms_sig = sig_ }) = lookup_module_type env modty in
+  let (p, { tms_quantum = quantum; tms_sig = sig_ }) = lookup_module_type env modty in
   let modty = {                         (* eta-normal form *)
+    mt_quantum = quantum;
     mt_params = sig_.mis_params;
     mt_name   = p;
     mt_args   = List.map (EcPath.mident -| fst) sig_.mis_params;
@@ -1812,7 +1813,10 @@ and trans_restr_for_modty env (modty : module_type) (pmr : pmod_restr option) =
 
 (* -------------------------------------------------------------------- *)
 and transmodsig (env : EcEnv.env) (inft : pinterface) =
-  let Pmty_struct modty = inft.pi_sig in
+  let (quantum,modty) = match inft.pi_sig with
+    | Pmty_struct modty  -> (`Classical, modty)
+    | Pmqty_struct modty -> (`Quantum, modty)
+  in
 
   let margs =
     List.map (fun (x, i) ->
@@ -1835,7 +1839,7 @@ and transmodsig (env : EcEnv.env) (inft : pinterface) =
       mis_body   = body;
       mis_oinfos = ois; } in
 
-  { tms_sig = mis; tms_loca = inft.pi_locality }
+  { tms_quantum = quantum; tms_sig = mis; tms_loca = inft.pi_locality }
 
 (* -------------------------------------------------------------------- *)
 and transmodsig_body
@@ -1845,44 +1849,7 @@ and transmodsig_body
   let names = ref [] in
 
   let transsig1 ois (item : pmodule_sig_item) = match item with
-    | `FunctionDecl f ->
-      let name = f.pfd_name in
-      names := name::!names;
-      let tyargs =
-        let tyargs =
-          List.map
-            (fun (x, ty) -> {
-                 ov_name = omap unloc x.pl_desc;
-                 ov_type = transty_for_decl env ty }) f.pfd_tyargs
-        in
-
-        let args = List.fold_left (fun names (x, _) ->
-          match unloc x with
-          | None   -> names
-          | Some x -> x :: names) [] f.pfd_tyargs
-        in
-
-        Msym.odup unloc args |> oiter (fun (_, a) ->
-          tyerror name.pl_loc env
-          (InvalidModSig (MTS_DupArgName (unloc name, unloc a))));
-
-        tyargs
-      in
-
-      let resty = transty_for_decl env f.pfd_tyresult in
-
-      let rname, calls = trans_restr_fun env env sa f.pfd_uses in
-
-      assert (rname = name.pl_desc);
-
-      let sig_ = { fs_name   = name.pl_desc;
-                   fs_arg    = ttuple (List.map ov_type tyargs);
-                   fs_anames = tyargs;
-                   fs_ret    = resty; }
-      and ois = EcModules.change_oicalls ois name.pl_desc calls in
-      [Tys_function sig_], ois
-
-    | `QFunctionDecl f ->
+    | `FunctionDecl f | `QFunctionDecl f ->
       let name = f.pfd_name in
       names := name::!names;
       let tyargs =

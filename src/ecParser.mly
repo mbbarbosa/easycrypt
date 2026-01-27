@@ -1646,6 +1646,13 @@ sig_def:
 			               } in
       { pi_name; pi_sig; pi_locality = locality_as_local pi_locality; } }
 
+| pi_locality=loc(locality) QMODULE TYPE pi_name=uident args=sig_params* EQ i=sig_body
+    { let pi_sig =
+        Pmqty_struct { pmsig_params = List.flatten args;
+                      pmsig_body   = i;
+			               } in
+      { pi_name; pi_sig; pi_locality = locality_as_local pi_locality; } }
+
 sig_body:
 | body=sig_struct_body { body }
 

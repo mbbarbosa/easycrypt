@@ -130,6 +130,7 @@ and oracle_infos = oracle_info Msym.t
 and mod_restr = (EcPath.Sx.t * EcPath.Sm.t) use_restr
 
 and module_type = {
+  mt_quantum : quantum;
   mt_params : (EcIdent.t * module_type) list;
   mt_name   : EcPath.path;
   mt_args   : EcPath.mpath list;

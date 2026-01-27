@@ -689,7 +689,8 @@ and subst_modtype (s : subst) (modty : module_type) =
       (fun () -> subst_path s modty.mt_name)
       (Mp.find_opt modty.mt_name s.sb_path) in
 
-  { mt_params = List.map (snd_map (subst_modtype s)) modty.mt_params;
+  { mt_quantum = modty.mt_quantum;
+    mt_params = List.map (snd_map (subst_modtype s)) modty.mt_params;
     mt_name   = mt_name;
     mt_args   = List.map (subst_mpath s) modty.mt_args; }
 
@@ -730,7 +731,8 @@ and fresh_glocals (s : subst) (locals : (EcIdent.t * gty) list) : subst * _ =
 
 (* -------------------------------------------------------------------- *)
 and subst_top_modsig (s : subst) (ms : top_module_sig) =
-  { tms_sig  = snd (subst_modsig s ms.tms_sig);
+  { tms_quantum = ms.tms_quantum;
+    tms_sig  = snd (subst_modsig s ms.tms_sig);
     tms_loca = ms.tms_loca; }
 
 (* -------------------------------------------------------------------- *)

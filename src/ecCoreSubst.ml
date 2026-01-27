@@ -554,10 +554,11 @@ module Fsubst = struct
 
   (* ------------------------------------------------------------------ *)
   and mty_subst (s : f_subst) (mty : module_type) : module_type =
+    let mt_quantum = mty.mt_quantum in
     let s, mt_params = add_mod_params s mty.mt_params in
     let mt_name = mty.mt_name in
     let mt_args = List.map (mp_subst s) mty.mt_args in
-    { mt_params; mt_name; mt_args; }
+    { mt_quantum; mt_params; mt_name; mt_args; }
 
   (* ------------------------------------------------------------------ *)
   and mty_mr_subst (s : f_subst) ((mty, mr) : mty_mr) : mty_mr =

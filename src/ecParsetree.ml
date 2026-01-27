@@ -269,6 +269,7 @@ and pmod_restr = {
 (* -------------------------------------------------------------------- *)
 and pmodule_sig =
   | Pmty_struct of pmodule_sig_struct
+  | Pmqty_struct of pmodule_sig_struct
 
 and pmodule_sig_struct = {
   pmsig_params : (psymbol * pmodule_type) list;

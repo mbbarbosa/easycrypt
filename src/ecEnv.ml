@@ -2122,9 +2122,10 @@ module ModTy = struct
     fst (lookup name env)
 
   let modtype p env =
-    let { tms_sig = sig_ } = by_path p env in
+    let { tms_quantum = quantum; tms_sig = sig_ } = by_path p env in
     (* eta-normal form *)
-    { mt_params = sig_.mis_params;
+    { mt_quantum = quantum;
+      mt_params = sig_.mis_params;
       mt_name   = p;
       mt_args   = List.map (EcPath.mident -| fst) sig_.mis_params; }
 
@@ -3292,7 +3293,7 @@ let bind1 ((x, eb) : symbol * ebinding) (env : env) =
   | `Variable ty -> Var   .bind_pvglob x ty env
   | `Function f  -> Fun   .bind x f env
   | `Module   m  -> Mod   .bind x {tme_expr = m; tme_loca = `Global} env
-  | `ModType  i  -> ModTy .bind x {tms_sig  = i; tms_loca = `Global} env
+  | `ModType  i  -> ModTy .bind x {tms_quantum = `Classical; tms_sig  = i; tms_loca = `Global} env
 
 let bindall (items : (symbol * ebinding) list) (env : env) =
   List.fold_left ((^~) bind1) env items
