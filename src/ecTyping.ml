@@ -865,6 +865,18 @@ let check_modtype (env : EcEnv.env) (mp : mpath) (ms : module_sig) ((mty, mr) : 
   check_sig_mt_cnv env ms mty
 
 (* -------------------------------------------------------------------- *)
+let check_oicalls quantum ois env =
+  let is_classical_x xpath =
+    let xpath = EcEnv.NormMp.norm_xfun env xpath in
+    let f = EcEnv.Fun.by_xpath xpath env in
+    f.f_quantum = `Classical
+  in
+  let is_classical_xs xpaths =
+    List.for_all is_classical_x xpaths
+  in
+  quantum = `Quantum || Msym.for_all (fun _ oi -> is_classical_xs oi.oi_calls) ois
+
+(* -------------------------------------------------------------------- *)
 let split_msymb (env : EcEnv.env) (msymb : pmsymbol located) =
   let (top, args, sm) =
     try
@@ -1426,6 +1438,7 @@ let lookup_fun env name =
   in
   quantum = `Quantum || Msym.for_all (fun _ oi -> is_classical_xs oi.oi_calls) ois *)
 
+(* -------------------------------------------------------------------- *)
 let transmodtype (env : EcEnv.env) (modty : pmodule_type) =
   let (p, { tms_quantum = quantum; tms_sig = sig_ }) = lookup_module_type env modty in
   let modty = {                         (* eta-normal form *)

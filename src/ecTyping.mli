@@ -284,6 +284,9 @@ val check_mem_restr_fun :
 val check_modtype :
   env -> mpath -> module_sig -> mty_mr -> unit
 
+val check_oicalls :
+  quantum -> oracle_infos -> env -> bool
+
 (* -------------------------------------------------------------------- *)
 val get_ring  : (ty_params * ty) -> env -> EcDecl.ring  option
 val get_field : (ty_params * ty) -> env -> EcDecl.field option

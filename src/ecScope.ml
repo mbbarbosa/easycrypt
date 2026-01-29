@@ -1726,6 +1726,17 @@ module Mod = struct
     in
 
     let m = TT.transmod (env scope) ~attop:true ptm in
+    
+    let has_qproc =
+        List.exists (fun (Tys_function fs) ->
+          fs.fs_quantum = `Quantum) m.me_sig_body
+      in
+      if has_qproc then
+        hierror "cannot define a classical module containing quantum procedures";
+      
+      (*if not (TT.check_oicalls `Classical m.me_oinfos (env scope)) then
+        hierror "cannot define a classical module whose procedures call quantum procedures";*)
+    
     let ur = EcModules.get_uninit_read_of_module (path scope) m in
 
     if not (List.is_empty ur) then begin
