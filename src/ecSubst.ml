@@ -453,7 +453,8 @@ let subst_funsig (s : subst) (funsig : funsig) =
   let fs_ret = subst_ty s funsig.fs_ret in
   let fs_anm = List.map (subst_ovariable s) funsig.fs_anames in
 
-  { fs_name   = funsig.fs_name;
+  { fs_quantum = funsig.fs_quantum;
+    fs_name   = funsig.fs_name;
     fs_arg    = fs_arg;
     fs_anames = fs_anm;
     fs_ret    = fs_ret; }

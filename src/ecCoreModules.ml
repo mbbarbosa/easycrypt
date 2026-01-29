@@ -354,6 +354,7 @@ let mr_mpaths_fv (m : mr_mpaths) : int Mid.t =
 
 (* -------------------------------------------------------------------- *)
 type funsig = {
+  fs_quantum : quantum;
   fs_name   : symbol;
   fs_arg    : EcTypes.ty;
   fs_anames : ovariable list;

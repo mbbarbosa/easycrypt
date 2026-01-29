@@ -86,6 +86,7 @@ val get_expression_of_instruction : instr -> (expr * instr_with_expr * (expr -> 
 
 (* -------------------------------------------------------------------- *)
 type funsig = {
+  fs_quantum : quantum;
   fs_name   : symbol;
   fs_arg    : EcTypes.ty;
   fs_anames : ovariable list;

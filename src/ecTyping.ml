@@ -1404,6 +1404,28 @@ let lookup_fun env name =
     tyerror name.pl_loc env (UnknownFunName name.pl_desc)
 
 (* -------------------------------------------------------------------- *)
+(* let check_oicalls quantum ois params env =
+  let is_classical_x xpath =
+    match xpath.EcPath.x_top.EcPath.m_top with
+    | `Local param_id ->
+      let param_mty = 
+        try List.assoc param_id params
+        with Not_found -> assert false
+      in
+      let param_sig = EcEnv.ModTy.sig_of_mt env param_mty in
+      let proc_fs =
+        List.find_map (fun (Tys_function fs) ->
+          if fs.fs_name = xpath.EcPath.x_sub then Some fs else None)
+          param_sig.mis_body
+      in
+      proc_fs.fs_quantum = `Classical
+    | _ -> assert false
+  in
+  let is_classical_xs xpaths =
+    List.for_all is_classical_x xpaths
+  in
+  quantum = `Quantum || Msym.for_all (fun _ oi -> is_classical_xs oi.oi_calls) ois *)
+
 let transmodtype (env : EcEnv.env) (modty : pmodule_type) =
   let (p, { tms_quantum = quantum; tms_sig = sig_ }) = lookup_module_type env modty in
   let modty = {                         (* eta-normal form *)
@@ -1412,6 +1434,7 @@ let transmodtype (env : EcEnv.env) (modty : pmodule_type) =
     mt_name   = p;
     mt_args   = List.map (EcPath.mident -| fst) sig_.mis_params;
   } in
+    (*assert(check_oicalls quantum sig_.mis_oinfos sig_.mis_params env);*)
     (modty, sig_)
 
 let transcall transexp env ue loc fsig args =
@@ -1849,7 +1872,11 @@ and transmodsig_body
   let names = ref [] in
 
   let transsig1 ois (item : pmodule_sig_item) = match item with
-    | `FunctionDecl f | `QFunctionDecl f ->
+    | `FunctionDecl f | `QFunctionDecl f as variant->
+      let is_qproc = match variant with
+        | `FunctionDecl _   -> `Classical
+        | `QFunctionDecl _  -> `Quantum
+      in
       let name = f.pfd_name in
       names := name::!names;
       let tyargs =
@@ -1879,7 +1906,8 @@ and transmodsig_body
 
       assert (rname = name.pl_desc);
 
-      let sig_ = { fs_name   = name.pl_desc;
+      let sig_ = { fs_quantum = is_qproc;
+                   fs_name   = name.pl_desc;
                    fs_arg    = ttuple (List.map ov_type tyargs);
                    fs_anames = tyargs;
                    fs_ret    = resty; }
@@ -2402,8 +2430,8 @@ and transstruct1 (env : EcEnv.env) (st : pstructure_item located) =
 
   | Pst_fun (decl, body) | Pst_qfun (decl, body) as variant -> begin
       let is_qfun = match variant with
-        | Pst_qfun _ -> true
-        | _          -> false
+        | Pst_qfun _ -> `Quantum
+        | _          -> `Classical
       in
       let ue  = UE.create (Some []) in
       let env = EcEnv.Fun.enter decl.pfd_name.pl_desc env in
@@ -2449,9 +2477,10 @@ and transstruct1 (env : EcEnv.env) (st : pstructure_item located) =
 
       (* Compose all results *)
       let fun_ =
-        { f_quantum = if is_qfun then `Quantum else `Classical;
+        { f_quantum = is_qfun;
           f_name   = decl.pfd_name.pl_desc;
           f_sig    = {
+            fs_quantum = is_qfun;
             fs_name   = decl.pfd_name.pl_desc;
             fs_arg    = ttuple (List.map (fun vd -> vd.v_type) params);         
             fs_anames = List.map ovar_of_var params;
@@ -3691,7 +3720,8 @@ and check_quantumness stmt is_qfun =
     | Sasgn _ | Scall _ -> true
     | _ -> false
   in
-  if is_qfun then List.for_all check_instr stmt.s_node else true
+  if is_qfun = `Quantum then List.for_all check_instr stmt.s_node else true
+  
 (* -------------------------------------------------------------------- *)
 let get_instances (tvi, bty) env =
   let inst = List.pmap

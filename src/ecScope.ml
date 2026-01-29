@@ -1747,9 +1747,18 @@ module Mod = struct
   let declare (scope : scope) (m : pmodule_decl) =
     let modty = m.ptm_modty in
     let name  = EcIdent.create (unloc m.ptm_name) in
-    let tysig = fst (TT.transmodtype (env scope) modty.pmty_pq) in
+    let tysig, sig_ = TT.transmodtype (env scope) modty.pmty_pq in
     if tysig.mt_quantum <> `Classical then
       hierror "cannot declare a classical abstract module of quantum type";
+    
+    (* Check that classical module type has no quantum procedures *)
+    let has_qproc =
+      List.exists (fun (Tys_function fs) ->
+        fs.fs_quantum = `Quantum) sig_.mis_body
+    in
+    if has_qproc then
+      hierror "cannot declare a classical module of a type containing quantum procedures";
+    
     (* We modify tysig restrictions according if necessary. *)
     let tysig = trans_restr_for_modty (env scope) tysig modty.pmty_mem in
 
@@ -1776,7 +1785,8 @@ module Mod = struct
     | { ptm_locality = lc; ptm_def = `Abstract decl } ->
       if lc <> `Declare then
         hierror "use declare for abstract module";
-      declare scope decl
+      let nscope = declare scope decl in
+      nscope 
 
     | { ptm_locality = lc; ptm_def = `QAbstract decl } ->
       if lc <> `Declare then
