@@ -809,7 +809,7 @@ let rec check_sig_cnv
 
   let bout = EcSubst.subst_modsig_body bsubst sout.mis_body
   and rout = EcSubst.subst_oracle_infos bsubst sout.mis_oinfos in
-
+  if sin.mis_quantum <> sout.mis_quantum then assert false;
   (* Check for body inclusion:
    * - functions inclusion with equal signatures + included oracles. *)
   let env = EcEnv.Mod.bind_params sin.mis_params env in
@@ -1440,9 +1440,9 @@ let lookup_fun env name =
 
 (* -------------------------------------------------------------------- *)
 let transmodtype (env : EcEnv.env) (modty : pmodule_type) =
-  let (p, { tms_quantum = quantum; tms_sig = sig_ }) = lookup_module_type env modty in
+  let (p, { tms_sig = sig_ }) = lookup_module_type env modty in
   let modty = {                         (* eta-normal form *)
-    mt_quantum = quantum;
+    mt_quantum = sig_.mis_quantum;
     mt_params = sig_.mis_params;
     mt_name   = p;
     mt_args   = List.map (EcPath.mident -| fst) sig_.mis_params;
@@ -1871,11 +1871,12 @@ and transmodsig (env : EcEnv.env) (inft : pinterface) =
   assert (Msym.cardinal ois = List.length body);
 
   let mis =
-    { mis_params = margs;
+    { mis_quantum = quantum;
+      mis_params = margs;
       mis_body   = body;
       mis_oinfos = ois; } in
 
-  { tms_quantum = quantum; tms_sig = mis; tms_loca = inft.pi_locality }
+  { tms_sig = mis; tms_loca = inft.pi_locality }
 
 (* -------------------------------------------------------------------- *)
 and transmodsig_body
@@ -2059,6 +2060,7 @@ and transmod_body ~attop (env : EcEnv.env) x params (me:pmodule_expr) =
     let allparams = stparams @ extraparams in
 
     let me = {
+        me_quantum  = me.me_quantum;
         me_name     = x.pl_desc;
         me_body     = ME_Alias (arity,mp);
         me_params   = allparams;
@@ -2327,7 +2329,8 @@ and transmod_body ~attop (env : EcEnv.env) x params (me:pmodule_expr) =
 
     (* Construct structure representation *)
     let me =
-      { me_name       = x.pl_desc;
+      { me_quantum    = me.me_quantum;
+        me_name       = x.pl_desc;
         me_body       = ME_Structure { ms_body = items; };
         me_comps      = items;
         me_params     = stparams;
@@ -2411,7 +2414,8 @@ and transstruct
 
   (* Construct structure representation *)
   let me =
-    { me_name       = x;
+    { me_quantum    = `Classical;
+      me_name       = x;
       me_body       = ME_Structure { ms_body = items; };
       me_comps      = items;
       me_params     = stparams;

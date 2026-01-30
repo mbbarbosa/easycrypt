@@ -101,7 +101,8 @@ let module_expr_of_module_sig (name : EcIdent.t) ((mty, mr) : mty_mr) (sig_ : mo
 
   let tycomps = module_comps_of_module_sig_comps sig_.mis_body sig_.mis_oinfos in
 
-  { me_name     = EcIdent.name name;
+  { me_quantum  = sig_.mis_quantum;
+    me_name     = EcIdent.name name;
     me_params   = sig_.mis_params ;
     me_body     = ME_Decl (mty, mr);
     me_comps    = tycomps;

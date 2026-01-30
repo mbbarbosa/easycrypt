@@ -677,7 +677,9 @@ and subst_modsig ?params (s : subst) (comps : module_sig) =
   in
 
   let comps =
-    { mis_params = newparams;
+    { 
+      mis_quantum = comps.mis_quantum;
+      mis_params = newparams;
       mis_body   = subst_modsig_body sbody comps.mis_body;
       mis_oinfos = subst_oracle_infos sbody comps.mis_oinfos; }
   in
@@ -732,8 +734,7 @@ and fresh_glocals (s : subst) (locals : (EcIdent.t * gty) list) : subst * _ =
 
 (* -------------------------------------------------------------------- *)
 and subst_top_modsig (s : subst) (ms : top_module_sig) =
-  { tms_quantum = ms.tms_quantum;
-    tms_sig  = snd (subst_modsig s ms.tms_sig);
+  { tms_sig  = snd (subst_modsig s ms.tms_sig);
     tms_loca = ms.tms_loca; }
 
 (* -------------------------------------------------------------------- *)
@@ -810,7 +811,7 @@ and subst_module (s : subst) (m : module_expr) =
   let me_comps = subst_module_comps sbody m.me_comps in
   let me_sig_body = subst_modsig_body sbody m.me_sig_body in
   let me_oinfos = subst_oracle_infos sbody m.me_oinfos in
-  { me_name = m.me_name; me_params; me_body; me_comps; me_sig_body; me_oinfos; }
+  { me_quantum = m.me_quantum; me_name = m.me_name; me_params; me_body; me_comps; me_sig_body; me_oinfos; }
 
 (* -------------------------------------------------------------------- *)
 let subst_modsig ?params (s : subst) (comps : module_sig) =

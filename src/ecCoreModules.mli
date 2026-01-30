@@ -155,13 +155,13 @@ type module_sig_body_item = Tys_function of funsig
 type module_sig_body = module_sig_body_item list
 
 type module_sig = {
+  mis_quantum : quantum;
   mis_params : (EcIdent.t * module_type) list;
   mis_body   : module_sig_body;
   mis_oinfos : oracle_infos;
 }
 
 type top_module_sig = {
-  tms_quantum : quantum;
   tms_sig  : module_sig;
   tms_loca : is_local;
 }
@@ -215,6 +215,7 @@ type abs_uses = {
 }
 
 type module_expr = {
+  me_quantum  : quantum;
   me_name     : symbol;
   me_params   : (EcIdent.t * module_type) list;
   me_body     : module_body;

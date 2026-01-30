@@ -1726,16 +1726,9 @@ module Mod = struct
     in
 
     let m = TT.transmod (env scope) ~attop:true ptm in
-    
-    let has_qproc =
-        List.exists (fun (Tys_function fs) ->
-          fs.fs_quantum = `Quantum) m.me_sig_body
-      in
-      if has_qproc then
-        hierror "cannot define a classical module containing quantum procedures";
       
-      (*if not (TT.check_oicalls `Classical m.me_oinfos (env scope)) then
-        hierror "cannot define a classical module whose procedures call quantum procedures";*)
+    (*if not (TT.check_oicalls `Classical m.me_oinfos (env scope)) then
+      hierror "cannot define a classical module whose procedures call quantum procedures";*)
     
     let ur = EcModules.get_uninit_read_of_module (path scope) m in
 
@@ -1761,6 +1754,13 @@ module Mod = struct
     let tysig, sig_ = TT.transmodtype (env scope) modty.pmty_pq in
     if tysig.mt_quantum <> `Classical then
       hierror "cannot declare a classical abstract module of quantum type";
+    
+    let has_qproc =
+        List.exists (fun (Tys_function fs) ->
+          fs.fs_quantum = `Quantum) sig_.mis_body
+      in
+      if has_qproc then
+        hierror "cannot define a classical module containing quantum procedures";
     
     (* Check that classical module type has no quantum procedures *)
     let has_qproc =
