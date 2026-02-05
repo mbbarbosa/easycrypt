@@ -1574,7 +1574,7 @@ qmod_decl:
         ptm_locality = locality; } }
 
 qmod_querybound:
-| f=loc(fident) EQ i=word  { (f, i) }
+| f=qident EQ i=word { (f, i) }
 
 qmod_querybounds:
 | LBRACKET qbl=rlist0(qmod_querybound,COMMA) RBRACKET { qbl }

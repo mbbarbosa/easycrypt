@@ -479,6 +479,7 @@ and module_body =
   | ME_Alias       of int * EcPath.mpath
   | ME_Structure   of module_structure       (* Concrete modules. *)
   | ME_Decl        of mty_mr                 (* Abstract modules. *)
+  | ME_QDecl       of mty_mr_qb              
 
 and module_structure = {
   ms_body      : module_item list;
@@ -534,6 +535,7 @@ let get_uninit_read_of_module (p : path) (me : module_expr) =
     match me.me_body with
     | ME_Alias     _  -> acc
     | ME_Decl      _  -> acc
+    | ME_QDecl     _  -> acc
     | ME_Structure mb -> doit_mb acc (mp, mb)
 
   and doit_mb acc (mp, mb) =

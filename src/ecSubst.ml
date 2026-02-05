@@ -790,6 +790,7 @@ and subst_module_body (s : subst) (body : module_body) =
       ME_Structure (subst_module_struct s bstruct)
 
   | ME_Decl p -> ME_Decl (subst_mty_mr s p)
+  | ME_QDecl (p, q) -> ME_QDecl (subst_mty_mr s p, q)
 
 (* -------------------------------------------------------------------- *)
 and subst_module_comps (s : subst) (comps : module_comps) =

@@ -1726,8 +1726,8 @@ module Mod = struct
     in
 
     let m = TT.transmod (env scope) ~attop:true ptm in
-      
-    (*if not (TT.check_oicalls `Classical m.me_oinfos (env scope)) then
+    
+    (*if not (TT.check_oicalls `Classical m.me_oinfos env') then
       hierror "cannot define a classical module whose procedures call quantum procedures";*)
     
     let ur = EcModules.get_uninit_read_of_module (path scope) m in
@@ -1754,15 +1754,7 @@ module Mod = struct
     let tysig, sig_ = TT.transmodtype (env scope) modty.pmty_pq in
     if tysig.mt_quantum <> `Classical then
       hierror "cannot declare a classical abstract module of quantum type";
-    
-    let has_qproc =
-        List.exists (fun (Tys_function fs) ->
-          fs.fs_quantum = `Quantum) sig_.mis_body
-      in
-      if has_qproc then
-        hierror "cannot define a classical module containing quantum procedures";
-    
-    (* Check that classical module type has no quantum procedures *)
+
     let has_qproc =
       List.exists (fun (Tys_function fs) ->
         fs.fs_quantum = `Quantum) sig_.mis_body
@@ -1770,6 +1762,8 @@ module Mod = struct
     if has_qproc then
       hierror "cannot declare a classical module of a type containing quantum procedures";
     
+    let env' = EcEnv.Mod.bind_params (sig_.mis_params) (env scope) in
+    assert(TT.check_oicalls `Classical sig_.mis_oinfos env');
     (* We modify tysig restrictions according if necessary. *)
     let tysig = trans_restr_for_modty (env scope) tysig modty.pmty_mem in
 
@@ -1784,6 +1778,7 @@ module Mod = struct
       hierror "cannot declare a quantum abstract module of classical type";
     (* We modify tysig restrictions according if necessary. *)
     let tysig = trans_restr_for_modty (env scope) tysig modty.pmty_mem in
+    let tysig = TT.trans_qbounds (env scope) tysig m.ptm_qbounds in
 
     { scope with
         sc_env = EcSection.add_decl_qmod name tysig scope.sc_env }

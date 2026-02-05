@@ -1981,7 +1981,7 @@ module Mod = struct
     vars_mb (EcPath.mqname mp me.me_name) xs me.me_body
 
   and vars_mb mp xs = function
-    | ME_Alias _ | ME_Decl _ -> xs
+    | ME_Alias _ | ME_Decl _ | ME_QDecl _ -> xs
     | ME_Structure ms ->
       List.fold_left (vars_item mp) xs ms.ms_body
 
@@ -2007,7 +2007,7 @@ module Mod = struct
           env_norm = ref !(env.env_norm); } in
     add_restr_to_declared (root env) me env
 
-  let me_of_mt env name (mty, mr) =
+  let me_of_mt ?(qb : qbounds option = None) env name (mty, mr) =
     let modsig =
       let modsig =
         match
@@ -2023,10 +2023,10 @@ module Mod = struct
       EcSubst.subst_modsig
         ~params:(List.map fst mty.mt_params) EcSubst.empty modsig.tms_sig
     in
-    module_expr_of_module_sig name (mty, mr) modsig
+    module_expr_of_module_sig ~qb name (mty, mr) modsig
 
-  let bind_local name modty env =
-    let me = me_of_mt env name modty in
+  let bind_local ?(qb : qbounds option = None) name modty env =
+    let me = me_of_mt ~qb env name modty in
     let path  = IPIdent (name, None) in
     let comps = MC.mc_of_module_param name me in
 
@@ -2043,8 +2043,8 @@ module Mod = struct
     in
       env
 
-  let declare_local id modty env =
-    { (bind_local id modty env) with
+  let declare_local ?(qb : qbounds option = None) id modty env =
+    { (bind_local ~qb id modty env) with
         env_modlcs = Sid.add id env.env_modlcs; }
 
   let is_declared id env = Sid.mem id env.env_modlcs
@@ -2367,7 +2367,7 @@ module NormMp = struct
   and body_use env rm fdone mp us comps body =
     match body with
     | ME_Alias _ -> assert false
-    | ME_Decl _ ->
+    | ME_Decl _ | ME_QDecl _ ->
       let id = match mp.m_top with `Local id -> id | _ -> assert false in
       let us = add_glob_except rm id us in
       List.fold_left (item_use env rm fdone mp) us comps

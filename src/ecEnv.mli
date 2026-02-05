@@ -189,11 +189,11 @@ module Mod : sig
   val bind  : ?import:bool -> symbol -> t -> env -> env
   val enter : symbol -> (EcIdent.t * module_type) list -> env -> env
 
-  val bind_local    : EcIdent.t -> mty_mr -> env -> env
+  val bind_local    : ?qb:qbounds option -> EcIdent.t -> mty_mr -> env -> env
   val bind_locals   : (EcIdent.t * mty_mr) list -> env -> env
   val bind_param    : EcIdent.t -> module_type -> env -> env
   val bind_params   : (EcIdent.t * module_type) list -> env -> env
-  val declare_local : EcIdent.t -> mty_mr -> env -> env
+  val declare_local : ?qb: qbounds option -> EcIdent.t -> mty_mr -> env -> env
   val is_declared   : EcIdent.t -> env -> bool
 
   val import_vars : env -> mpath -> env

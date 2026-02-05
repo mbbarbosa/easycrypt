@@ -77,4 +77,4 @@ and auto_rule = {
 val mkitem : import:bool -> theory_item_r -> theory_item
 
 (* -------------------------------------------------------------------- *)
-val module_expr_of_module_sig : EcIdent.t -> mty_mr -> module_sig -> module_expr
+val module_expr_of_module_sig : ?qb:qbounds option -> EcIdent.t -> mty_mr -> module_sig -> module_expr

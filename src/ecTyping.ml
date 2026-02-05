@@ -866,6 +866,7 @@ let check_modtype (env : EcEnv.env) (mp : mpath) (ms : module_sig) ((mty, mr) : 
 
 (* -------------------------------------------------------------------- *)
 let check_oicalls quantum ois env =
+  
   let is_classical_x xpath =
     let xpath = EcEnv.NormMp.norm_xfun env xpath in
     let f = EcEnv.Fun.by_xpath xpath env in
@@ -1447,7 +1448,7 @@ let transmodtype (env : EcEnv.env) (modty : pmodule_type) =
     mt_name   = p;
     mt_args   = List.map (EcPath.mident -| fst) sig_.mis_params;
   } in
-    (*assert(check_oicalls quantum sig_.mis_oinfos sig_.mis_params env);*)
+  (*assert(check_oicalls (sig_.mis_quantum) sig_.mis_oinfos env);*)
     (modty, sig_)
 
 let transcall transexp env ue loc fsig args =
@@ -1791,7 +1792,23 @@ let trans_restr_mem env (r_mem : pmod_restr_mem) =
     mr_empty
     r_mem
 
-(* -------------------------------------------------------------------- *)
+
+let trans_qbounds env (tysig : mty_mr) (qb : pqbounds) : mty_mr_qb =
+  let env = EcEnv.Mod.bind_params (fst tysig).mt_params env in
+  let do_one (pf, pb) =
+    let f =  pf in
+    let loc = loc f in
+    let (m,f) = unloc f in
+    let ff = match m with
+      | a :: [] -> trans_oracle env (mk_loc loc a, mk_loc loc f)
+      | _ -> assert false in
+    (ff, pb)
+  in
+  tysig , (List.map do_one qb)
+
+
+
+
 (* See [trans_restr_fun] for the requirements on [env], [env_in], [params]. *)
 let trans_restr_oracle_calls env env_in (params : Sm.t) = function
     | None ->

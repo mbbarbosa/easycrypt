@@ -267,6 +267,7 @@ val trans_msymbol    : env -> pmsymbol located -> mpath * module_smpl_sig
 val trans_gamepath   : env -> pgamepath -> xpath
 val trans_oracle     : env -> psymbol * psymbol -> xpath
 val trans_restr_mem  : env -> pmod_restr_mem -> mod_restr
+val trans_qbounds    : env -> mty_mr -> pqbounds -> mty_mr_qb
 
 val trans_args :
      EcEnv.env

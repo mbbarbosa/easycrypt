@@ -162,6 +162,9 @@ and gty =
   | GTmem   of memtype
 
 and mty_mr = module_type * mod_restr
+and mty_mr_qb = mty_mr * qbounds 
+
+and qbounds = (xpath * int) list
 
 and binding  = (EcIdent.t * gty)
 and bindings = binding list
