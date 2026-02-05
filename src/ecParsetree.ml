@@ -369,7 +369,7 @@ and pupdate_cond =
   | Pupc_del of pbranch_select
 
 and pfunction_body = {
-  pfb_locals : pfunction_local list;
+  pfb_locals : pfunction_local' list;
   pfb_body   : pstmt;
   pfb_return : pexpr option;
 }
@@ -379,6 +379,10 @@ and pfunction_local = {
   pfl_type  : pty   option;
   pfl_init  : pexpr option;
 }
+
+and pfunction_local' =
+  | Pfun_local of pfunction_local
+  | Pfun_qlocal of pfunction_local
 
 type pinterface = {
   pi_name : psymbol;

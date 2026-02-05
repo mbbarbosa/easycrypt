@@ -174,6 +174,7 @@ type tyerror =
 | PositiveShouldBeBeforeNegative
 | NotAnExpression        of [`Unknown | `LL | `Pr | `Logic | `Glob | `MemSel]
 | InvalidInstrForQProc
+| ClAbsModNoQprocCalls
 
 exception TymodCnvFailure of tymod_cnv_failure
 exception TyError of EcLocation.t * env * tyerror
@@ -287,7 +288,7 @@ val check_modtype :
   env -> mpath -> module_sig -> mty_mr -> unit
 
 val check_oicalls :
-  quantum -> oracle_infos -> env -> bool
+  t -> oracle_infos -> env -> unit
 
 val check_modcalls:
   module_expr -> env -> bool

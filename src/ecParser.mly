@@ -1410,16 +1410,16 @@ loc_decl_names:
 
 loc_decl_r:
 | VAR x=loc(loc_decl_names)
-    { { pfl_names = x; pfl_type = None; pfl_init = None; } }
+    { Pfun_local { pfl_names = x; pfl_type = None; pfl_init = None; } }
 
 | VAR x=loc(loc_decl_names) COLON ty=loc(type_exp)
-    { { pfl_names = x; pfl_type = Some ty; pfl_init = None; } }
+    { Pfun_local { pfl_names = x; pfl_type = Some ty; pfl_init = None; } }
 
 | VAR x=loc(loc_decl_names) COLON ty=loc(type_exp) LARROW e=expr
-    { { pfl_names = x; pfl_type = Some ty; pfl_init = Some e; } }
+    { Pfun_local { pfl_names = x; pfl_type = Some ty; pfl_init = Some e; } }
 
 | VAR x=loc(loc_decl_names) LARROW e=expr
-    { { pfl_names = x; pfl_type = None; pfl_init = Some e; } }
+    { Pfun_local { pfl_names = x; pfl_type = None; pfl_init = Some e; } }
 
 loc_decl:
 | x=loc_decl_r SEMICOLON { x }
@@ -1427,16 +1427,16 @@ loc_decl:
 loc_qdecl_r:
   (* FIXME: WE ONLY CONSIDER QUANTUM LOCAL VARIABLES FOR NOW *)
 | QVAR x=loc(loc_decl_names)
-    { { pfl_names = x; pfl_type = None; pfl_init = None; } }
+    { Pfun_qlocal { pfl_names = x; pfl_type = None; pfl_init = None; } }
 
 | QVAR x=loc(loc_decl_names) COLON ty=loc(type_exp)
-    { { pfl_names = x; pfl_type = Some ty; pfl_init = None; } }
+    { Pfun_qlocal { pfl_names = x; pfl_type = Some ty; pfl_init = None; } }
 
 | QVAR x=loc(loc_decl_names) COLON ty=loc(type_exp) LARROW e=expr
-    { { pfl_names = x; pfl_type = Some ty; pfl_init = Some e; } }
+    { Pfun_qlocal { pfl_names = x; pfl_type = Some ty; pfl_init = Some e; } }
 
 | QVAR x=loc(loc_decl_names) LARROW e=expr
-    { { pfl_names = x; pfl_type = None; pfl_init = Some e; } }
+    { Pfun_qlocal { pfl_names = x; pfl_type = None; pfl_init = Some e; } }
 
 loc_qdecl:
 | x=loc_qdecl_r SEMICOLON { x }

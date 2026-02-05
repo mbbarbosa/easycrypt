@@ -182,6 +182,7 @@ type tyerror =
 | PositiveShouldBeBeforeNegative
 | NotAnExpression        of [`Unknown | `LL | `Pr | `Logic | `Glob | `MemSel]
 | InvalidInstrForQProc
+| ClAbsModNoQprocCalls
 
 (* -------------------------------------------------------------------- *)
 exception TyError of EcLocation.t * EcEnv.env * tyerror
@@ -870,17 +871,21 @@ let check_modtype (env : EcEnv.env) (mp : mpath) (ms : module_sig) ((mty, mr) : 
   check_sig_mt_cnv env ms mty
 
 (* -------------------------------------------------------------------- *)
-let check_oicalls quantum ois env =
-  
+let check_oicalls loc ois env =
+  let exception Fail in 
+  try
   let is_classical_x xpath =
     let xpath = EcEnv.NormMp.norm_xfun env xpath in
     let f = EcEnv.Fun.by_xpath xpath env in
-    f.f_quantum = `Classical
+    if f.f_quantum <> `Classical then 
+      raise (Fail)
   in
   let is_classical_xs xpaths =
-    List.for_all is_classical_x xpaths
+    List.iter is_classical_x xpaths
   in
-  quantum = `Quantum || Msym.for_all (fun _ oi -> is_classical_xs oi.oi_calls) ois
+   Msym.iter (fun _ oi -> is_classical_xs oi.oi_calls) ois
+  with
+  | Fail -> tyerror loc env (ClAbsModNoQprocCalls)
 
 let check_modcalls me env =
   let funsigs = List.map (function (Tys_function funsig) -> funsig) me.me_sig_body in
@@ -2597,6 +2602,10 @@ and transbody ue memenv (env : EcEnv.env) retty pbody =
 
   (* Type-check local variables / check for dups *)
   let add_local memenv local =
+    let (_, local) = match local with
+      | Pfun_qlocal l -> (`Quantum, l)
+      | Pfun_local  l -> (`Classical, l) 
+    in
     let env   = EcEnv.Memory.push_active_ss memenv env in
     let ty     = local.pfl_type |> omap (transty tp_uni env ue) in
     let init   = local.pfl_init |> omap (fst -| transexp env `InProc ue) in

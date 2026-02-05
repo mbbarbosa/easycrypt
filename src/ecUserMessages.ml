@@ -34,13 +34,13 @@ end = struct
     let ppe0 = EcPrinting.PPEnv.ofenv env0 in
 
     let msg x = Format.fprintf fmt x in
-
+    
     let pp_type fmt ty = EcPrinting.pp_type ppe0 fmt ty in
 
     match error with
-    | MF_quant (qin,qout) ->
+    | MF_quant (ex, got) ->
         msg "expected a %a procedure, but got a %a procedure"
-          EcPrinting.pp_quantum qout EcPrinting.pp_quantum qin
+          EcPrinting.pp_quantum ex EcPrinting.pp_quantum got
 
     | MF_targs (ex, got) ->
         msg "its argument has type %a instead of %a"
@@ -556,6 +556,8 @@ end = struct
     end
     | InvalidInstrForQProc ->
         msg "instruction not allowed in quantum procedure"
+    | ClAbsModNoQprocCalls ->
+        msg "a classical abstract module cannot call quantum procedures"
 
 
 
