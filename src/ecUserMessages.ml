@@ -38,6 +38,10 @@ end = struct
     let pp_type fmt ty = EcPrinting.pp_type ppe0 fmt ty in
 
     match error with
+    | MF_quant (qin,qout) ->
+        msg "expected a %a procedure, but got a %a procedure"
+          EcPrinting.pp_quantum qout EcPrinting.pp_quantum qin
+
     | MF_targs (ex, got) ->
         msg "its argument has type %a instead of %a"
           pp_type got pp_type ex

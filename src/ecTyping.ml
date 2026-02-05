@@ -33,6 +33,7 @@ type 'a mismatch_sets = [`Eq of 'a * 'a | `Sub of 'a ]
 type 'a suboreq       = [`Eq of 'a | `Sub of 'a ]
 
 type mismatch_funsig =
+| MF_quant     of quantum * quantum                     (* expected, got *)
 | MF_targs     of ty * ty                               (* expected, got *)
 | MF_tres      of ty * ty                               (* expected, got *)
 | MF_restr     of EcEnv.env * Sx.t mismatch_sets
@@ -512,6 +513,10 @@ let check_item_compatible env mode (fin,oin) (fout,oout) =
   let check_item_err err =
     tymod_cnv_failure (E_TyModCnv_MismatchFunSig(fin.fs_name,err)) in
 
+  let (qin,qout) = (fin.fs_quantum, fout.fs_quantum) in
+  if qin <> qout then
+    check_item_err (MF_quant(qin, qout));
+
   let (iargs, oargs) = (fin.fs_arg, fout.fs_arg) in
   let (ires , ores ) = (fin.fs_ret, fout.fs_ret) in
 
@@ -876,6 +881,22 @@ let check_oicalls quantum ois env =
     List.for_all is_classical_x xpaths
   in
   quantum = `Quantum || Msym.for_all (fun _ oi -> is_classical_xs oi.oi_calls) ois
+
+let check_modcalls me env =
+  let funsigs = List.map (function (Tys_function funsig) -> funsig) me.me_sig_body in
+  let ois = me.me_oinfos in
+  let lookup_symbol fs =
+    (Msym.find fs.fs_name ois).oi_calls
+  in
+  let quantum_mismatch x quantum =
+    let f = EcEnv.Fun.by_xpath x env in
+    f.f_quantum <> quantum
+  in
+  let quantum_mismatches xs quantum =
+    List.exists (fun x -> quantum_mismatch x quantum) xs
+  in
+  List.exists (function fs -> 
+    quantum_mismatches (lookup_symbol fs) fs.fs_quantum) funsigs
 
 (* -------------------------------------------------------------------- *)
 let split_msymb (env : EcEnv.env) (msymb : pmsymbol located) =
@@ -1417,29 +1438,6 @@ let lookup_fun env name =
     tyerror name.pl_loc env (UnknownFunName name.pl_desc)
 
 (* -------------------------------------------------------------------- *)
-(* let check_oicalls quantum ois params env =
-  let is_classical_x xpath =
-    match xpath.EcPath.x_top.EcPath.m_top with
-    | `Local param_id ->
-      let param_mty = 
-        try List.assoc param_id params
-        with Not_found -> assert false
-      in
-      let param_sig = EcEnv.ModTy.sig_of_mt env param_mty in
-      let proc_fs =
-        List.find_map (fun (Tys_function fs) ->
-          if fs.fs_name = xpath.EcPath.x_sub then Some fs else None)
-          param_sig.mis_body
-      in
-      proc_fs.fs_quantum = `Classical
-    | _ -> assert false
-  in
-  let is_classical_xs xpaths =
-    List.for_all is_classical_x xpaths
-  in
-  quantum = `Quantum || Msym.for_all (fun _ oi -> is_classical_xs oi.oi_calls) ois *)
-
-(* -------------------------------------------------------------------- *)
 let transmodtype (env : EcEnv.env) (modty : pmodule_type) =
   let (p, { tms_sig = sig_ }) = lookup_module_type env modty in
   let modty = {                         (* eta-normal form *)
@@ -1448,7 +1446,6 @@ let transmodtype (env : EcEnv.env) (modty : pmodule_type) =
     mt_name   = p;
     mt_args   = List.map (EcPath.mident -| fst) sig_.mis_params;
   } in
-  (*assert(check_oicalls (sig_.mis_quantum) sig_.mis_oinfos env);*)
     (modty, sig_)
 
 let transcall transexp env ue loc fsig args =

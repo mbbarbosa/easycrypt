@@ -1727,8 +1727,8 @@ module Mod = struct
 
     let m = TT.transmod (env scope) ~attop:true ptm in
     
-    (*if not (TT.check_oicalls `Classical m.me_oinfos env') then
-      hierror "cannot define a classical module whose procedures call quantum procedures";*)
+    let env' = EcEnv.Mod.bind_params (m.me_params) (env scope) in
+    assert( not (TT.check_modcalls m env'));
     
     let ur = EcModules.get_uninit_read_of_module (path scope) m in
 
@@ -1764,6 +1764,7 @@ module Mod = struct
     
     let env' = EcEnv.Mod.bind_params (sig_.mis_params) (env scope) in
     assert(TT.check_oicalls `Classical sig_.mis_oinfos env');
+
     (* We modify tysig restrictions according if necessary. *)
     let tysig = trans_restr_for_modty (env scope) tysig modty.pmty_mem in
 

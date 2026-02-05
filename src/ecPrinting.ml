@@ -1469,6 +1469,13 @@ let pp_locality fmt lc =
   Format.fprintf fmt "%s" (odfl "" (string_of_locality lc))
 
 (* -------------------------------------------------------------------- *)
+let pp_quantum fmt (q : quantum) =
+  Format.fprintf fmt "%s"
+    (match q with
+     | `Classical -> "classical"
+     | `Quantum   -> "quantum")
+
+(* -------------------------------------------------------------------- *)
 (* suppose g is a formula consisting of the application of a binary
    operator op with scope onm and precedence opprec to formula
    arguments [_; f]. Because f may end with an implication,

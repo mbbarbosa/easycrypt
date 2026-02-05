@@ -61,6 +61,7 @@ module type PrinterAPI = sig
   val pp_tyvar    : PPEnv.t -> ident pp
   val pp_tyunivar : PPEnv.t -> EcUid.uid pp
   val pp_path     : path pp
+  val pp_quantum  : EcAst.quantum pp
   
   (* ------------------------------------------------------------------ *)
   val shorten_path : PPEnv.t -> (path -> qsymbol -> bool) -> path -> qsymbol * qsymbol option

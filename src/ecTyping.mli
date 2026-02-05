@@ -26,6 +26,7 @@ type 'a mismatch_sets = [`Eq of 'a * 'a | `Sub of 'a ]
 type 'a suboreq       = [`Eq of 'a | `Sub of 'a ]
 
 type mismatch_funsig =
+| MF_quant     of quantum * quantum  
 | MF_targs  of ty * ty                               (* expected, got *)
 | MF_tres   of ty * ty                               (* expected, got *)
 | MF_restr  of EcEnv.env * Sx.t mismatch_sets
@@ -287,6 +288,9 @@ val check_modtype :
 
 val check_oicalls :
   quantum -> oracle_infos -> env -> bool
+
+val check_modcalls:
+  module_expr -> env -> bool
 
 (* -------------------------------------------------------------------- *)
 val get_ring  : (ty_params * ty) -> env -> EcDecl.ring  option
