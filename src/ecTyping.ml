@@ -1798,9 +1798,8 @@ let trans_restr_mem env (r_mem : pmod_restr_mem) =
 let trans_qbounds env (tysig : mty_mr) (qb : pqbounds) : mty_mr_qb =
   let env = EcEnv.Mod.bind_params (fst tysig).mt_params env in
   let do_one (pf, pb) =
-    let f =  pf in
-    let loc = loc f in
-    let (m,f) = unloc f in
+    let loc = loc pf in
+    let (m,f) = unloc pf in
     let ff = match m with
       | a :: [] -> trans_oracle env (mk_loc loc a, mk_loc loc f)
       | _ -> assert false in
