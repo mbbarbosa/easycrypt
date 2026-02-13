@@ -570,7 +570,7 @@ and sc_item =
   | SC_th_item  of EcTheory.theory_item
   | SC_th       of EcEnv.Theory.compiled_theory
   | SC_decl_mod of EcIdent.t * mty_mr
-  | SC_decl_qmod of EcIdent.t * mty_mr_qb
+  | SC_decl_qmod of EcIdent.t * mty_mr
 
 and sc_items =
   sc_item list
@@ -1510,7 +1510,7 @@ and generalize_ctheory
 
 and generalize_lc_item (genenv : to_gen) (prefix : path) (item : sc_item) =
   match item with
-  | SC_decl_mod (id, modty) | SC_decl_qmod (id, (modty,_)) ->
+  | SC_decl_mod (id, modty) | SC_decl_qmod (id, modty) ->
     add_declared_mod genenv id modty
   | SC_th_item th_item ->
     generalize_th_item genenv prefix th_item
@@ -1617,8 +1617,7 @@ let add_decl_mod id mt scenv =
       sc_env = EcEnv.Mod.declare_local id mt scenv.sc_env;
       sc_items = SC_decl_mod (id, mt) :: scenv.sc_items }
 
-let add_decl_qmod id (mt : mty_mr_qb) scenv =
-  let qb = Some (snd mt) in
+let add_decl_qmod id (mt : mty_mr) scenv =
   match scenv.sc_name with
   | Th _ | Top ->
     hierror "declare module are only allowed inside section"
@@ -1633,9 +1632,9 @@ let add_decl_qmod id (mt : mty_mr_qb) scenv =
       d_tc    = [`Global];
     } in
     let from = `Declare, `QModule (mpath_abs id []) in
-    on_mty_mr_qb (mkaenv scenv.sc_env (cb scenv from cd)) mt;
+    on_mty_mr (mkaenv scenv.sc_env (cb scenv from cd)) mt;
     { scenv with
-      sc_env = EcEnv.Mod.declare_local ~qb id (fst mt) scenv.sc_env;
+      sc_env = EcEnv.Mod.declare_local id mt scenv.sc_env;
       sc_items = SC_decl_qmod (id, mt) :: scenv.sc_items }
 
 

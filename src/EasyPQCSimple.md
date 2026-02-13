@@ -21,4 +21,4 @@ $$ \frac{U_f = U_{g}}{ \\{ qstate_{A_l}^i = qstate_{A_r}^i \\} \ A_l^{U_f} \sim 
 
 - coherent signature conversion (for modules and procedures)
 
-- new variant for module_body : ME_QDecl of mty_mr_qb, that has list of query bounds - (xpath * int) list
+- new variant for module_body : ME_QDecl of mty_mr_qb, that has list of query bounds - (xpath * int) list (REMOVED)

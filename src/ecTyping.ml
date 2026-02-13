@@ -1794,7 +1794,7 @@ let trans_restr_mem env (r_mem : pmod_restr_mem) =
     mr_empty
     r_mem
 
-
+(*
 let trans_qbounds env (tysig : mty_mr) (qb : pqbounds) : mty_mr_qb =
   let env = EcEnv.Mod.bind_params (fst tysig).mt_params env in
   let do_one (pf, pb) =
@@ -1806,7 +1806,7 @@ let trans_qbounds env (tysig : mty_mr) (qb : pqbounds) : mty_mr_qb =
     (ff, pb)
   in
   tysig , (List.map do_one qb)
-
+*)
 
 
 

@@ -95,21 +95,16 @@ let module_comps_of_module_sig_comps (comps : module_sig_body) (ois : oracle_inf
     List.map onitem comps
 
 (* -------------------------------------------------------------------- *)
-let module_expr_of_module_sig ?(qb : qbounds option = None) (name : EcIdent.t) ((mty, mr) : mty_mr) (sig_ : module_sig) =
+let module_expr_of_module_sig (name : EcIdent.t) ((mty, mr) : mty_mr) (sig_ : module_sig) =
   (* Abstract modules must be fully applied. *)
   assert (List.length mty.mt_params = List.length mty.mt_args);
 
   let tycomps = module_comps_of_module_sig_comps sig_.mis_body sig_.mis_oinfos in
-  let decl = match qb with
-    | Some qb ->
-      ME_QDecl ((mty, mr), qb)
-    | None ->
-      ME_Decl (mty, mr)
-  in
+
   { me_quantum  = sig_.mis_quantum;
     me_name     = EcIdent.name name;
     me_params   = sig_.mis_params ;
-    me_body     = decl;
+    me_body     = ME_Decl (mty, mr);
     me_comps    = tycomps;
     me_sig_body = sig_.mis_body;
     me_oinfos   = sig_.mis_oinfos; }

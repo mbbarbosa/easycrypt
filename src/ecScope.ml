@@ -1779,7 +1779,6 @@ module Mod = struct
       hierror "cannot declare a quantum abstract module of classical type";
     (* We modify tysig restrictions according if necessary. *)
     let tysig = trans_restr_for_modty (env scope) tysig modty.pmty_mem in
-    let tysig = TT.trans_qbounds (env scope) tysig m.ptm_qbounds in
 
     { scope with
         sc_env = EcSection.add_decl_qmod name tysig scope.sc_env }

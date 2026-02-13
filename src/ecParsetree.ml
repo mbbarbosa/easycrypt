@@ -317,10 +317,9 @@ and pmodule_decl = {
 and pqmodule_decl = {
   ptm_name  : psymbol;
   ptm_modty : pmodule_type_restr;
-  ptm_qbounds : pqbounds;
 }
 
-and pqbounds = (pqsymbol * int) list
+(*and pqbounds = (pqsymbol * int) list*)
 
 and pmodule_def = {
   ptm_header : pmodule_header;
