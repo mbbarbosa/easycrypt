@@ -63,6 +63,7 @@
     "ehoare"      , EHOARE     ;        (* KW: prog *)
     "phoare"      , PHOARE     ;        (* KW: prog *)
     "islossless"  , LOSSLESS   ;        (* KW: prog *)
+    "qbound"      , QBOUND     ;        (* KW: prog *)
     "async"       , ASYNC      ;        (* KW: prog *)
 
     "try"         , TRY        ;        (* KW: tactical *)

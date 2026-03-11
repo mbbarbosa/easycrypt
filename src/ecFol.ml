@@ -1126,6 +1126,7 @@ let rec dump_f f =
   | Ftuple  f -> " ( " ^ String.concat ", " (List.map dump_f f) ^ " )"
   | Fproj   (f, x) -> dump_f f ^ "." ^ string_of_int x
   | Fpr {pr_args = a; pr_event = e} -> "PR [ARG = " ^ dump_f a ^ " ; EV = " ^ dump_f e.inv ^ "]"
+  | Fqbound {qb_mod; qb_orcl; qb_bound} -> "QBOUND [ MOD = " ^ EcPath.m_tostring qb_mod ^ " ; ORCL = "^ EcPath.x_tostring qb_orcl ^ " ; BD = " ^ dump_f qb_bound ^ "]"
   | FhoareF _ -> "HoareF"
   | FhoareS _ -> "HoareS"
   | FbdHoareF _ -> "bdHoareF"

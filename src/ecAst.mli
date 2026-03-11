@@ -205,7 +205,8 @@ and f_node =
   | FeagerF of eagerF
 
   | Fpr of pr (* hr *)
-
+  
+  | Fqbound of qbound
 (* We use the alert system for privacy because we want to 
    permit access in *some* instances, and the other fields are fine *)
 (* This is to ensure that memory bindings are carried along with the invariants *)
@@ -317,6 +318,11 @@ and pr = {
   pr_event : ss_inv;
 }
 
+and qbound = {
+  qb_mod : mpath;
+  qb_orcl : xpath;
+  qb_bound : form;
+}
 (* -------------------------------------------------------------------- *)
 
 val map_ss_inv : ?m:memory -> (form list -> form) -> ss_inv list -> ss_inv
@@ -555,6 +561,8 @@ val eg_hash   : eagerF hash
 val pr_equal  : pr equality
 val pr_hash   : pr hash
 
+val qb_equal  : qbound equality
+val qb_hash   : qbound hash
 (* ----------------------------------------------------------------- *)
 (* Hashconsing                                                       *)
 (* ----------------------------------------------------------------- *)

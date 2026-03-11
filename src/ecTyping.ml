@@ -180,7 +180,7 @@ type tyerror =
 | NoDefaultMemRestr
 | ProcAssign             of qsymbol
 | PositiveShouldBeBeforeNegative
-| NotAnExpression        of [`Unknown | `LL | `Pr | `Logic | `Glob | `MemSel]
+| NotAnExpression        of [`Unknown | `LL | `QB | `Pr | `Logic | `Glob | `MemSel]
 | InvalidInstrForQProc
 | ClAbsModNoQprocCalls
 
@@ -1717,6 +1717,7 @@ let top_is_mem_binding pf = match pf with
   | PFeqveq   _
   | PFeqf     _
   | PFlsless  _
+  | PFqbound  _
   | PFscope   _ -> false
 
 
@@ -1794,19 +1795,16 @@ let trans_restr_mem env (r_mem : pmod_restr_mem) =
     mr_empty
     r_mem
 
-(*
-let trans_qbounds env (tysig : mty_mr) (qb : pqbounds) : mty_mr_qb =
-  let env = EcEnv.Mod.bind_params (fst tysig).mt_params env in
-  let do_one (pf, pb) =
-    let loc = loc pf in
-    let (m,f) = unloc pf in
-    let ff = match m with
+
+let trans_qbounds env tysig o =
+  let env = EcEnv.Mod.bind_params tysig.miss_params env in
+  let loc = loc o in
+  let (m,f) = unloc o in
+  let ff = match m with
       | a :: [] -> trans_oracle env (mk_loc loc a, mk_loc loc f)
       | _ -> assert false in
-    (ff, pb)
-  in
-  tysig , (List.map do_one qb)
-*)
+  ff
+
 
 
 
@@ -3572,6 +3570,15 @@ and trans_form_or_pattern env mode ?mv ?ps ue pf tt =
           tyerror f.pl_loc env (NotAnExpression `LL);
         let fpath = trans_gamepath env gp in
           f_losslessF fpath
+    
+    | PFqbound (m, o, b) ->
+        if mode <> `Form then
+          tyerror f.pl_loc env (NotAnExpression `QB);
+        let (m,mt) = trans_msymbol env m in
+        let x = trans_qbounds env mt o in 
+        let f = transf env b in
+        assert (EcTypes.ty_equal f.f_ty EcTypes.tint);
+        f_qbound m x f 
 
     | PFequivF (ml, mr, pre, (gp1, gp2), post) ->
         if mode <> `Form then

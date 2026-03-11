@@ -198,7 +198,7 @@ and norm_lambda (st : state) (f : form) =
   | FeHoareF _ | FeHoareS _
   | FequivF _   | FequivS _
   | FeagerF   _ | Fpr _
-
+  | Fqbound _
     -> f
 
 (* -------------------------------------------------------------------- *)
@@ -582,7 +582,13 @@ and cbv (st : state) (s : subst) (f : form) (args : args) : form =
     let pr_event = norm st s pr.pr_event.inv in
     let (m,_) = norm_me s (abstract pr.pr_event.m) in
     f_pr pr_mem pr_fun pr_args {m;inv=pr_event}
-
+  
+  | Fqbound qb ->
+    assert (Args.isempty args);
+    let qb_orcl = norm_xfun st s qb.qb_orcl in
+    let qb_bound = norm st s qb.qb_bound in
+    f_qbound qb.qb_mod qb_orcl qb_bound
+    
 (* -------------------------------------------------------------------- *)
 (* FIXME : initialize the subst with let in hyps *)
 let norm_cbv (ri : reduction_info) hyps f =

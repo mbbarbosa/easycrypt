@@ -283,7 +283,7 @@ and on_form (aenv : aenv) (f : EcFol.form) =
     | EcAst.FbdHoareS bhs          -> on_bhs  aenv bhs
     | EcAst.FbdHoareF bhf          -> on_bhf  aenv bhf
     | EcAst.Fpr       pr           -> on_pr   aenv pr
-
+    | EcAst.Fqbound   qb           -> on_qbound aenv qb
     | EcAst.Fop (p, tys) -> begin
       on_opname aenv p;
       List.iter (on_ty aenv) tys;
@@ -351,6 +351,11 @@ and on_form (aenv : aenv) (f : EcFol.form) =
     on_xp aenv pr.EcAst.pr_fun;
     List.iter (on_form aenv) [pr.EcAst.pr_event.inv; pr.EcAst.pr_args]
 
+  and on_qbound (aenv : aenv) qb =
+    on_mp aenv qb.EcAst.qb_mod;
+    on_xp aenv qb.EcAst.qb_orcl;
+    on_form aenv qb.EcAst.qb_bound;
+    
   in
     on_ty aenv f.EcAst.f_ty; fornode ()
 

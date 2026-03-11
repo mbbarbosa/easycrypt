@@ -544,10 +544,11 @@ end = struct
     | NotAnExpression `Unknown ->
         msg "this expression contains form-like constructors"
 
-    | NotAnExpression ((`LL | `Pr | `Logic | `Glob | `MemSel) as what) -> begin
+    | NotAnExpression ((`LL | `QB | `Pr | `Logic | `Glob | `MemSel) as what) -> begin
         msg "expressions cannot contain a %s"
         begin match what with
         | `LL     -> "lossless statement"
+        | `QB     -> "quantum oracle bound statement"
         | `Pr     -> "Pr[...] statement"
         | `Logic  -> "program logic statement"
         | `Glob   -> "glob statement"

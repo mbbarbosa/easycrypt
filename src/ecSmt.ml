@@ -701,6 +701,7 @@ and trans_form ((genv, lenv) as env : tenv * lenv) (fp : form) =
   | FbdHoareF _ | FbdHoareS _
   | FequivF   _ | FequivS   _
     -> trans_gen env fp
+  | Fqbound _ -> assert false
 
 and trans_form_b env f = Cast.force_bool (trans_form env f)
 
@@ -1412,7 +1413,7 @@ module Frequency = struct
       | FeHoareF _ | FeHoareS _
       | FbdHoareF _ | FbdHoareS _
       | FequivF _   | FequivS _
-      | FeagerF _ -> ()
+      | FeagerF _   | Fqbound _ -> ()
 
       | Fpr pr ->
         sf := Sx.add pr.pr_fun !sf;

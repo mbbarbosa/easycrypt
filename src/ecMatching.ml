@@ -1202,6 +1202,7 @@ module FPosition = struct
           | FbdHoareS _ -> raise InvalidPosition
           | FequivS   _ -> raise InvalidPosition
           | FeagerF   _ -> raise InvalidPosition
+          | Fqbound   _ -> raise InvalidPosition
       end
 
     and doit ps fps =

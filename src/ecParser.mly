@@ -529,6 +529,7 @@
 %token PROGRESS
 %token PROOF
 %token PROVER
+%token QBOUND
 %token QED
 %token QUESTION
 %token RARROW
@@ -1199,6 +1200,9 @@ form_u(P):
 
 | LOSSLESS mp=loc(fident)
     { PFlsless mp }
+
+| QBOUND m=loc(mod_qident) LPAREN o=qident COLON b=form_r(P) RPAREN
+    { PFqbound (m, o, b) }
 
 form_field:
 | x=qident EQ f=form

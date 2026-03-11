@@ -133,6 +133,8 @@ val f_eagerF : ts_inv -> stmt -> xpath -> xpath -> stmt -> ts_inv -> form
 val f_pr_r : pr -> form
 val f_pr   : memory -> xpath -> form -> ss_inv -> form
 
+val f_qbound_r : qbound  -> form
+val f_qbound : mpath -> xpath -> form -> form
 (* soft-constructors - unit *)
 val f_tt : form
 

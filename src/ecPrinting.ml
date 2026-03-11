@@ -2070,6 +2070,12 @@ and pp_form_core_r
         (pp_pl_mem_binding pm ppe) pr.pr_event.m
         (pp_local ppe) pr.pr_mem
         (pp_form ppep) pr.pr_event.inv
+        
+  | Fqbound qb ->      
+      Format.fprintf fmt "Qbound \"%a\" (%a : %a)"
+        pp_msymbol (PPEnv.mod_symb ppe qb.qb_mod)
+        (pp_funname ppe) qb.qb_orcl
+        (pp_form ppe) qb.qb_bound
 
 and pp_form_r
   (ppe   : PPEnv.t)

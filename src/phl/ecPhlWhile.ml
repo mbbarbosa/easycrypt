@@ -393,7 +393,7 @@ module LossLess = struct
 
            in e_local idx fp.f_ty
 
-      | Fglob     _
+      | Fglob     _ | Fqbound   _
       | FhoareF   _ | FhoareS   _
       | FeHoareF _  | FeHoareS _
       | FbdHoareF _ | FbdHoareS _

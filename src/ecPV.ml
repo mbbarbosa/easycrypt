@@ -316,7 +316,7 @@ module PV = struct
           add_glob env (EcPath.mident mp) fv
         else fv
 
-      | Fint _ | Flocal _ | Fop _ -> fv
+      | Fint _ | Flocal _ | Fop _ | Fqbound _ -> fv
 
       | Fapp (e, es) ->
           List.fold_left (aux env) (aux env fv e) es

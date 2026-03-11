@@ -342,6 +342,12 @@ let f_pr_r pr = mk_form (Fpr pr) treal
 let f_pr pr_mem pr_fun pr_args (pr_event: ss_inv) =
   f_pr_r { pr_mem; pr_fun; pr_args; pr_event; }
 
+let f_qbound_r qb =
+  mk_form (Fqbound qb) tbool
+
+let f_qbound qb_mod qb_orcl qb_bound =
+  f_qbound_r {qb_mod; qb_orcl; qb_bound} 
+
 (* -------------------------------------------------------------------- *)
 let fop_int_opp   = f_op EcCoreLib.CI_Int.p_int_opp [] (toarrow [tint]       tint)
 let fop_int_add   = f_op EcCoreLib.CI_Int.p_int_add [] (toarrow [tint; tint] tint)
@@ -524,7 +530,10 @@ let f_map gt g fp =
       let args' = g pr.pr_args in
       let ev'   = g pr.pr_event.inv in
       f_pr_r { pr with pr_args = args'; pr_event = {m=pr.pr_event.m; inv=ev'}; }
-
+  
+  | Fqbound qb ->
+      let b' = g qb.qb_bound in
+      f_qbound_r { qb with qb_bound = b' }
 (* -------------------------------------------------------------------- *)
 let f_iter g f =
   match f.f_node with
@@ -552,7 +561,7 @@ let f_iter g f =
   | FequivS   es  -> g (es_pr es).inv; g (es_po es).inv
   | FeagerF   eg  -> g (eg_pr eg).inv; g (eg_po eg).inv
   | Fpr       pr  -> g pr.pr_args; g pr.pr_event.inv
-
+  | Fqbound   qb  -> g qb.qb_bound
 
 (* -------------------------------------------------------------------- *)
 let form_exists g f =
@@ -581,7 +590,7 @@ let form_exists g f =
   | FequivS   es  -> g (es_pr es).inv   || g (es_po es).inv
   | FeagerF   eg  -> g (eg_pr eg).inv    || g (eg_po eg).inv
   | Fpr       pr  -> g pr.pr_args  || g pr.pr_event.inv
-
+  | Fqbound   qb  -> g qb.qb_bound
 (* -------------------------------------------------------------------- *)
 let form_forall g f =
   match f.f_node with
@@ -609,6 +618,7 @@ let form_forall g f =
   | Fpr       pr  -> g pr.pr_args && g pr.pr_event.inv
   | FeHoareF  hf  -> g (ehf_pr hf).inv && g (ehf_po hf).inv
   | FeHoareS  hs  -> g (ehs_pr hs).inv && g (ehs_po hs).inv
+  | Fqbound   qb  -> g qb.qb_bound
 
 
 (* -------------------------------------------------------------------- *)
@@ -1011,7 +1021,7 @@ let expr_of_ss_inv f =
       then e_var pv fp.f_ty
       else raise CannotTranslate
 
-    | Fglob     _
+    | Fglob     _ | Fqbound   _
     | FhoareF   _ | FhoareS   _
     | FeHoareF  _ | FeHoareS  _
     | FbdHoareF _ | FbdHoareS _
@@ -1053,7 +1063,8 @@ let expr_of_form f =
     | FeHoareF  _ | FeHoareS  _
     | FbdHoareF _ | FbdHoareS _
     | FequivF   _ | FequivS   _
-    | FeagerF   _ | Fpr       _ -> raise CannotTranslate
+    | FeagerF   _ | Fpr       _ 
+    | Fqbound   _               -> raise CannotTranslate
 
   and auxbd ((x, bd) : binding) =
     match bd with

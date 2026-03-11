@@ -172,7 +172,7 @@ type tyerror =
 | NoDefaultMemRestr
 | ProcAssign             of qsymbol
 | PositiveShouldBeBeforeNegative
-| NotAnExpression        of [`Unknown | `LL | `Pr | `Logic | `Glob | `MemSel]
+| NotAnExpression        of [`Unknown | `LL | `QB | `Pr | `Logic | `Glob | `MemSel]
 | InvalidInstrForQProc
 | ClAbsModNoQprocCalls
 

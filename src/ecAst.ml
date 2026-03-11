@@ -211,6 +211,8 @@ and f_node =
 
   | Fpr of pr (* hr *)
 
+  | Fqbound of qbound
+
 and eagerF = {
   eg_ml : memory;
   eg_mr : memory;
@@ -295,6 +297,12 @@ and pr = {
   pr_fun   : EcPath.xpath;
   pr_args  : form;
   pr_event : ss_inv;
+}
+
+and qbound = {
+  qb_mod : mpath;
+  qb_orcl : xpath;
+  qb_bound : form;
 }
 
 let map_ss_inv ?m (fn: form list -> form) (invs: ss_inv list): ss_inv = 
@@ -994,6 +1002,10 @@ let pr_equal pr1 pr2 =
   && f_equal          pr1.pr_args pr2.pr_args
   && mem_equal        pr1.pr_event.m pr2.pr_event.m
 
+let qb_equal qb1 qb2 =
+     EcPath.m_equal qb1.qb_mod qb2.qb_mod
+  && EcPath.x_equal qb1.qb_orcl qb2.qb_orcl
+  && f_equal qb1.qb_bound qb2.qb_bound
 (* -------------------------------------------------------------------- *)
 let hf_hash hf =
   Why3.Hashcons.combine3
@@ -1059,7 +1071,12 @@ let pr_hash pr =
     (f_hash          pr.pr_args)
     (Why3.Hashcons.combine (f_hash pr.pr_event.inv) (mem_hash pr.pr_event.m))
 
-
+let qb_hash qb =
+  Why3.Hashcons.combine2
+    (EcPath.m_hash qb.qb_mod)
+    (EcPath.x_hash qb.qb_orcl)
+    (f_hash qb.qb_bound)
+    
 (* ----------------------------------------------------------------- *)
 (* Hashconsing                                                       *)
 (* ----------------------------------------------------------------- *)
@@ -1289,7 +1306,7 @@ module Hsform = Why3.Hashcons.Make (struct
     | FequivS     eqs1, FequivS     eqs2 -> eqs_equal eqs1 eqs2
     | FeagerF     eg1 , FeagerF     eg2  -> egf_equal eg1 eg2
     | Fpr         pr1 , Fpr         pr2  -> pr_equal pr1 pr2
-
+    | Fqbound     qb1 , Fqbound     qb2  -> qb_equal qb1 qb2
     | _, _ -> false
 
   let equal f1 f2 =
@@ -1343,7 +1360,7 @@ module Hsform = Why3.Hashcons.Make (struct
     | FequivS     es   -> es_hash es
     | FeagerF     eg   -> eg_hash eg
     | Fpr         pr   -> pr_hash pr
-
+    | Fqbound     qb   -> qb_hash qb
   let hash (f : form) =
     Why3.Hashcons.combine (ty_hash f.f_ty) (hash_node f.f_node)
 
@@ -1426,7 +1443,10 @@ module Hsform = Why3.Hashcons.Make (struct
         let fve = Mid.remove pr.pr_event.m (f_fv pr.pr_event.inv) in
         let fv  = EcPath.x_fv fve pr.pr_fun in
         fv_union (f_fv pr.pr_args) (fv_add pr.pr_mem fv)
-
+    | Fqbound qb ->
+        let fve = f_fv qb.qb_bound in
+        let fv  = EcPath.x_fv fve qb.qb_orcl in
+        EcPath.m_fv (EcPath.m_fv fv qb.qb_mod) qb.qb_mod
   let tag n f =
     let fv = fv_union (fv_node f.f_node) f.f_ty.ty_fv in
       { f with f_tag = n; f_fv = fv; }
