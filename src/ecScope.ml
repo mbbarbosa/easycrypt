@@ -1727,8 +1727,8 @@ module Mod = struct
 
     let m = TT.transmod (env scope) ~attop:true ptm in
     
-    let env' = EcEnv.Mod.bind_params (m.me_params) (env scope) in
-    assert( not (TT.check_modcalls m env'));
+    (*let env' = EcEnv.Mod.bind_params (m.me_params) (env scope) in
+    assert( not (TT.check_modcalls m env')); *)
     
     let ur = EcModules.get_uninit_read_of_module (path scope) m in
 

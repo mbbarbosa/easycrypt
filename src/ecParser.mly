@@ -1201,7 +1201,7 @@ form_u(P):
 | LOSSLESS mp=loc(fident)
     { PFlsless mp }
 
-| QBOUND m=loc(mod_qident) LPAREN o=qident COLON b=form_r(P) RPAREN
+| QBOUND m=loc(mod_qident) LBRACKET o=qident COLON b=form_r(P) RBRACKET
     { PFqbound (m, o, b) }
 
 form_field:
@@ -1565,17 +1565,24 @@ mod_body:
 mod_def_or_decl:
 | locality=locality MODULE header=mod_header c=mod_cast? EQ ptm_body=loc(mod_body)
   { let ptm_header = match c with None -> header | Some c ->  Pmh_cast(header,c) in
-    { ptm_def      = `Concrete { ptm_header; ptm_body; };
+    { ptm_def      = `Concrete { ptm_quantum = `Classical; ptm_header; ptm_body; };
       ptm_locality = locality; } }
 
 | locality=locality MODULE ptm_name=uident LTCOLON ptm_modty=mod_type_with_restr
     { { ptm_def      = `Abstract { ptm_name; ptm_modty; };
         ptm_locality = locality; } }
 
-qmod_decl:
+qmod_def_or_decl:
+| locality=locality QMODULE header=mod_header c=mod_cast? EQ ptm_body=loc(mod_body)
+  { let ptm_header = match c with None -> header | Some c ->  Pmh_cast(header,c) in
+    { ptm_def      = `Concrete { ptm_quantum = `Quantum; ptm_header; ptm_body; };
+      ptm_locality = locality; } }
+
 | locality=locality QMODULE ptm_name=uident LTCOLON ptm_modty=mod_type_with_restr
     { { ptm_def      = `QAbstract { ptm_name; ptm_modty;};
         ptm_locality = locality; } }
+
+
 (*)
 qmod_querybound:
 | f=qident EQ i=word { (f, i) }
@@ -3913,7 +3920,7 @@ global_action:
 | section_open     { GsctOpen     $1 }
 | section_close    { GsctClose    $1 }
 | mod_def_or_decl  { Gmodule      $1 }
-| qmod_decl        { Gmodule      $1 }
+| qmod_def_or_decl { Gmodule      $1 }
 | sig_def          { Ginterface   $1 }
 | typedecl         { Gtype        $1 }
 | subtype          { Gsubtype     $1 }

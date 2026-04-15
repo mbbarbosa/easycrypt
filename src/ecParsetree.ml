@@ -319,10 +319,11 @@ and pqmodule_decl = {
   ptm_name  : psymbol;
   ptm_modty : pmodule_type_restr;
 }
-
+  
 (*and pqbounds = (pqsymbol * int) list*)
 
 and pmodule_def = {
+  ptm_quantum : [`Classical | `Quantum];
   ptm_header : pmodule_header;
   ptm_body   : pmodule_expr;
 }

@@ -756,6 +756,27 @@ let f_match_core opts hyps (ue, ev) f1 f2 =
           doit env (subst, mxs) ev1.inv ev2.inv;
       end
 
+      | Fqbound qb1, Fqbound qb2 -> begin
+          (* Check oracle function name matches *)
+          if not (EcSymbols.sym_equal qb1.qb_orcl.EcPath.x_sub qb2.qb_orcl.EcPath.x_sub) then
+            failure ();
+          (* Match the module: bind metavar or check equality *)
+          (match EcPath.mget_ident_opt qb1.qb_mod with
+           | Some id when EV.mem id !ev.evm_mod -> begin
+               match EV.get id !ev.evm_mod with
+               | Some `Unset ->
+                   ev := { !ev with evm_mod = EV.set id qb2.qb_mod !ev.evm_mod }
+               | Some (`Set mp) ->
+                   if not (EcReduction.EqTest.for_mp env mp qb2.qb_mod) then
+                     failure ()
+               | None -> assert false
+             end
+           | _ ->
+               if not (EcReduction.EqTest.for_mp env qb1.qb_mod qb2.qb_mod) then
+                 failure ());
+          doit env ilc qb1.qb_bound qb2.qb_bound
+      end
+
       | _, _ -> failure ()
 
     with MatchFailure ->

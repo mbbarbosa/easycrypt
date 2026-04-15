@@ -63,6 +63,7 @@ type tymod_cnv_failure =
 | E_TyModCnv_MismatchFunSig    of symbol * mismatch_funsig
 | E_TyModCnv_SubTypeArg        of
     EcIdent.t * module_type * module_type * tymod_cnv_failure
+| E_TyModCnv_QuantMismatch of quantum * quantum
 
 type modapp_error =
 | MAE_WrongArgCount      of int * int  (* expected, got *)

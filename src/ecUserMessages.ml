@@ -174,7 +174,9 @@ end = struct
         (EcPrinting.pp_modtype ppe) t1
         (EcPrinting.pp_modtype ppe) t2
         (pp_cnv_failure env) err
-
+    | E_TyModCnv_QuantMismatch (q1, q2) ->
+      msg "the module is expected to be %a, but is %a"
+        EcPrinting.pp_quantum q1 EcPrinting.pp_quantum q2
   let pp_modappl_error env fmt error =
     let msg x = Format.fprintf fmt x in
 

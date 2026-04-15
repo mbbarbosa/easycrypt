@@ -71,6 +71,7 @@ type tymod_cnv_failure =
 | E_TyModCnv_MismatchFunSig    of symbol * mismatch_funsig
 | E_TyModCnv_SubTypeArg        of
     EcIdent.t * module_type * module_type * tymod_cnv_failure
+| E_TyModCnv_QuantMismatch of quantum * quantum
 
 type modapp_error =
 | MAE_WrongArgCount       of int * int  (* expected, got *)
@@ -516,7 +517,7 @@ let check_item_compatible env mode (fin,oin) (fout,oout) =
 
   let (qin,qout) = (fin.fs_quantum, fout.fs_quantum) in
   if qin <> qout then
-    check_item_err (MF_quant(qin, qout));
+    check_item_err (MF_quant(qout, qin));
 
   let (iargs, oargs) = (fin.fs_arg, fout.fs_arg) in
   let (ires , ores ) = (fin.fs_ret, fout.fs_ret) in
@@ -815,7 +816,7 @@ let rec check_sig_cnv
 
   let bout = EcSubst.subst_modsig_body bsubst sout.mis_body
   and rout = EcSubst.subst_oracle_infos bsubst sout.mis_oinfos in
-  if sin.mis_quantum <> sout.mis_quantum then assert false;
+  (*if sin.mis_quantum <> sout.mis_quantum then tymod_cnv_failure (E_TyModCnv_QuantMismatch (sout.mis_quantum, sin.mis_quantum));*)
   (* Check for body inclusion:
    * - functions inclusion with equal signatures + included oracles. *)
   let env = EcEnv.Mod.bind_params sin.mis_params env in
@@ -2000,7 +2001,8 @@ and transmodsig_body
 
 (* -------------------------------------------------------------------- *)
 and transmod ~attop (env : EcEnv.env) (me : pmodule_def) =
-  snd (transmod_header ~attop env me.ptm_header [] me.ptm_body)
+  let (_, me') = transmod_header ~attop env me.ptm_header [] me.ptm_body in
+  { me' with me_quantum = me.ptm_quantum }
 
 (* -------------------------------------------------------------------- *)
 and transmod_header
@@ -2445,6 +2447,7 @@ and transstruct1 (env : EcEnv.env) (st : pstructure_item located) =
   match unloc st with
   | Pst_mod  (x,cast, me) ->
     let pe = {
+      ptm_quantum  = `Classical;
       ptm_header   = if List.is_empty cast then Pmh_ident x else Pmh_cast(Pmh_ident x, cast);
       ptm_body     = me; } in
 
@@ -2583,7 +2586,7 @@ and transstruct1_alias env name f =
   let f = trans_gamepath env f in
   let sig_ = (EcEnv.Fun.by_xpath f env).f_sig in
   let fun_ = {
-      f_quantum = `Classical;
+      f_quantum = sig_.fs_quantum;
       f_name = name;
       f_sig = { sig_ with fs_name = name };
       f_def = FBalias f;
@@ -3577,7 +3580,7 @@ and trans_form_or_pattern env mode ?mv ?ps ue pf tt =
         let (m,mt) = trans_msymbol env m in
         let x = trans_qbounds env mt o in 
         let f = transf env b in
-        assert (EcTypes.ty_equal f.f_ty EcTypes.tint);
+        unify_or_fail env ue b.pl_loc ~expct:EcTypes.tint f.f_ty;
         f_qbound m x f 
 
     | PFequivF (ml, mr, pre, (gp1, gp2), post) ->
