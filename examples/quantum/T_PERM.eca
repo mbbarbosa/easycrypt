@@ -1,0 +1,84 @@
+require import AllCore Distr Dexcepted.
+
+type pkey.
+type skey.
+
+type dom. 
+type codom. 
+
+op [lossless] kg : (pkey * skey) distr.
+
+abstract theory PERM.
+
+  op f : pkey -> dom -> codom.
+  op finv: skey -> codom -> dom.
+
+  axiom finv_f ks s : ks \in kg => finv ks.`2 (f ks.`1 s) = s.
+  axiom f_finv ks h : ks \in kg => f ks.`1 (finv ks.`2 h) = h.
+
+end PERM.
+
+clone include PERM.
+
+abstract theory T_OW.
+
+type init.
+
+module type AdvOW = {
+  proc main(pk:pkey, y:codom, i:init) : dom
+}.
+
+op dcodom : codom distr.
+
+module OW(A:AdvOW) = {
+  proc main(i:init) = {
+    var pk, sk, y, x;
+    (pk, sk) <$ kg;
+    y <$ dcodom;
+    x <@ A.main(pk, y, i);
+    return (finv sk y) = x;
+  }
+}.
+
+end T_OW.
+
+module type AdvClawFree = {
+  proc main (pk:pkey) : dom * dom
+}.
+
+abstract theory T_ClawFree.
+
+clone PERM as P2.
+
+module ClawFree(A:AdvClawFree) = {
+  proc main () = {
+    var pk, sk, s1, s2;
+    (pk, sk) <$ kg;
+    (s1, s2) <@ A.main(pk);
+    return f pk s1 = P2.f pk s2;
+  }
+}.
+
+end T_ClawFree.
+
+abstract theory T_PSF.
+
+op sampleD : dom distr.
+op samplePre : skey -> codom -> dom distr.
+
+op sampleDf (pk:pkey) = dmap sampleD (f pk).
+
+axiom sampleD_ll : is_lossless sampleD.
+
+(* Domain sampling with uniform output *)
+axiom sampleDf_funi pk sk: 
+  (pk, sk) \in kg => is_funiform (sampleDf pk).
+
+(* Preimage sampling with trapdoor *)
+axiom samplePreE pk sk y: 
+   (pk, sk) \in kg =>
+   samplePre sk y = sampleD \ (fun x => f pk x <> y).
+
+clone include T_OW.
+
+end T_PSF.

@@ -42,20 +42,22 @@ hint solve 0 random : dfhash_ll dfhash_uni dfhash_fu.
 
 module type QRO_i = {
   proc init () : unit
-  qproc h(_:from) : hash 
+  qproc hq(_:from) : hash 
+  proc hc(_:from) : hash 
 }.
 
 
 module type QRO = {
-  include QRO_i [h]
+  include QRO_i [hq,hc]
 }.
 
 module QRO : QRO_i = {
   var  h : from -> hash
+  var ch : int
+  proc init() = {ch <- 0;  h <$ dfhash; }
 
-  proc init() = {  h <$ dfhash; }
-
-  qproc h (x:from) = { return h x; }
+  qproc hq (x:from) = { return h x; }
+  proc hc (x:from) = { ch <- ch + 1; return h x;}
 }.
 
 require import DJoin.
@@ -63,14 +65,15 @@ require import DJoin.
 
 abstract theory Collision.
    
-  op q : { int | 0 <= q } as ge0_q.  
+  op qQ : { int | 0 <= qQ } as ge0_qQ.  
+  op qC : { int | 0 <= qC } as ge0_qC.
   type input.
 
-  module type AdvCol_Aux (H:QRO) = {
+  qmodule type AdvCol_Aux (H:QRO) = {
     proc main(i:input) : from * from
   }.
 
-  module type AdvCol (H:QRO) = {
+  qmodule type AdvCol (H:QRO) = {
     proc main() : from * from
   }.
   
@@ -96,13 +99,15 @@ abstract theory Collision.
 section.
 
 declare op qH : int. 
-declare qmodule A <: AdvCol_Aux {-QRO} (* [ H.h : q ] *).
+declare qmodule A <: AdvCol_Aux {-QRO}.
   (* Thm 3.9 in MZ Thesis: N is the card of hash type. *)
   (* This version allows auxilliary information and q
      to be set interdependently *)
   (* Thm 2.1 in qrom_axioms.pdf *)
   axiom pr_col_aux i_ &m:
     let r = mu1 dhash witness in
+    let q = qQ + qC in
+    qbound A [H.hq : qQ] /\ hoare[Col_Aux(A).main : i = i_ /\ QRO.ch = 0 ==> QRO.ch <= qC]  =>
     Pr[Col_Aux(A).main(i_) @ &m : res] <= (27 *(q +2)^3)%r * r.
 end section.
 
@@ -115,6 +120,8 @@ declare qmodule A <: AdvCol {-QRO} (* [ H.h : q ] *).
   (* Thm 2.1 in qrom_axioms.pdf *)
   axiom pr_col  &m:
     let r = mu1 dhash witness in
+    let q = qQ + qC in
+    qbound A [H.hq : qQ] /\ hoare[Col(A).main : QRO.ch = 0 ==> QRO.ch <= qC]  =>
     Pr[Col(A).main() @ &m : res] <= (27 *(q +2)^3)%r * r. 
 end section.
 
@@ -140,7 +147,7 @@ type result = bool * from * from list.
 op good(bf : from -> bool, x : from, l : from list) = 
      bf x /\ (forall x', x' \in l => !bf x') /\ size l <= k.
 
-module type AdvSCD (H:QRO) = {
+qmodule type AdvSCD (H:QRO) = {
   proc main() : result
 }.
  
@@ -171,12 +178,13 @@ module SCD (A:AdvSCD) = {
 
 section.
 
-declare op q : int.
-declare qmodule A <: AdvSCD{-SCD,-QRO}. (* [ H.h : q ] *)
+declare qmodule A <: AdvSCD{-SCD,-QRO}. 
 
   (* Thm 4.1 in qrom_axioms.pdf *)
-axiom advantage lambda &m:
+axiom advantage (qQ:int) qC lambda &m:
+  let q = qQ + qC in
   0%r <= lambda <= 1%r =>
+  qbound A [H.hq : qQ] /\  hoare [SCD(A)._F0 : p = lambda ==> QRO.ch <= qC] =>
   `| Pr[SCD(A)._F0(lambda) @ &m : res] - Pr[SCD(A)._F1(lambda) @ &m: res] | 
    <= (2%r * q%r + k%r + 1%r)^4/ 6%r * lambda^2.
 
@@ -207,7 +215,8 @@ qed.
 
 module type SR_i = {
   proc init () : unit
-  quantum proc h {_:from} : hash    
+  qproc hq (_:from) : hash    
+  proc hc (_:from) : hash 
 }.
 
 module type SR = {
@@ -215,7 +224,7 @@ module type SR = {
 }.
 
 
-quantum module type AdvSR (H:SR) = {
+qmodule type AdvSR (H:SR) = {
   proc main() : bool
 }.
 
@@ -232,7 +241,7 @@ module SR : SR_i = {
     QRO.h <- fun x => nth witness rh (r2i (fr x)); 
   } 
 
-  include QRO [h]
+  include QRO [hq,hc]
 }.
 
 module SRO : SR_i = {
@@ -241,7 +250,7 @@ module SRO : SR_i = {
     QRO.init();
   } 
 
-  include QRO [h]
+  include QRO [hq,hc]
 }.
 
 module IND_SR (H:SR_i, A:AdvSR) = {
@@ -256,19 +265,27 @@ module IND_SR (H:SR_i, A:AdvSR) = {
 
 (* This bound comes from Corollary 4.15 of Mark Zhandry's thesis *)
   (* Thm 5.1 in qrom_axioms.pdf *)
-axiom advantage (q:int)  (A<:AdvSR{-SR,-QRO}) &m:
+section.
+
+declare qmodule A <: AdvSR{-SR,-QRO}.
+
+axiom advantage (qC:int) qQ &m:
+  let q = qC + qQ in
   0 < _r => 
-  hoare [IND_SR(SRO,A).main : true ==> QRO.ch <= q] => 
+  qbound A [H.hq : qQ] /\ hoare [IND_SR(SRO,A).main : true ==> QRO.ch <= qC] => 
   `| Pr[IND_SR(SRO,A).main() @ &m : res] - Pr[IND_SR(SR,A).main() @ &m : res] | <= 
       (27 * q^3)%r / _r%r.
 
-
+end section.
 
 module type SRr_i = {
   proc init () : unit
-  quantum proc h {_:from} : R * hash    
+  qproc hq (_:from) : R * hash    
+  proc hc (_:from) : R * hash
 }.
 
+end SmallRange.
+(*
 realize typing__0.
 apply Finite.finite_type_pair. 
 + apply Rt.Support.is_finite.
@@ -525,4 +542,5 @@ end T_StandardSecurePRG.
 
 end T_PRG.
 
+*)
 *)
