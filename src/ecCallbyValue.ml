@@ -26,6 +26,7 @@ module Subst : sig
   val subst          : subst -> form -> form
   val subst_ty       : subst -> ty -> ty
   val subst_xpath    : subst -> EcPath.xpath -> EcPath.xpath
+  val subst_mpath    : subst -> EcPath.mpath -> EcPath.mpath
   val subst_m        : subst -> ident -> ident
   val subst_me       : subst -> EcMemory.memenv -> EcMemory.memenv
   val subst_lpattern : subst -> lpattern -> subst * lpattern
@@ -45,6 +46,7 @@ end = struct
   let subst          = Fsubst.f_subst ?tx:None
   let subst_ty       = ty_subst
   let subst_xpath    = Fsubst.x_subst
+  let subst_mpath    = Fsubst.mp_subst
   let subst_m        = Fsubst.m_subst
   let subst_me       = Fsubst.me_subst
   let subst_lpattern = Fsubst.lp_subst
@@ -165,6 +167,10 @@ type args = Args.args
 let norm_xfun st s f =
   let f  = Subst.subst_xpath s f in
   if st.st_ri.modpath then EcEnv.NormMp.norm_xfun st.st_env f else f
+
+let norm_mp st s m =
+  let m = Subst.subst_mpath s m in
+  if st.st_ri.modpath then EcEnv.NormMp.norm_mpath st.st_env m else m
 
 let norm_stmt s c  = Subst.subst_stmt s c
 let norm_me   s me = Subst.subst_me s me
@@ -585,9 +591,14 @@ and cbv (st : state) (s : subst) (f : form) (args : args) : form =
   
   | Fqbound qb ->
     assert (Args.isempty args);
+    let qb_proc =
+    match qb.EcAst.qb_proc with
+    | EcAst.Qmod m -> EcAst.Qmod (norm_mp st s m)
+    | EcAst.Qproc x -> EcAst.Qproc (norm_xfun st s x)
+    in
     let qb_orcl = norm_xfun st s qb.qb_orcl in
     let qb_bound = norm st s qb.qb_bound in
-    f_qbound qb.qb_mod qb_orcl qb_bound
+    f_qbound qb_proc qb_orcl qb_bound
     
 (* -------------------------------------------------------------------- *)
 (* FIXME : initialize the subst with let in hyps *)

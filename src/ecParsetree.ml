@@ -200,7 +200,7 @@ and pformula_r =
   | PFeqveq   of glob_or_var list * (pmsymbol pair) option
   | PFeqf     of pformula list
   | PFlsless  of pgamepath
-  | PFqbound  of pmsymbol located * pqsymbol * pformula
+  | PFqbound  of pqboundhead * pqsymbol * pformula
   | PFscope   of pqsymbol * pformula
 
   | PFhoareF   of psymbol option * pformula * pgamepath * pformula
@@ -218,6 +218,10 @@ and pgtybindings = pgtybinding list
 
 and pgscbinding  = psymbol list * pty
 and pgscbindings = pgscbinding list
+
+and pqboundhead =
+| PQBConcrete of pgamepath
+| PQBAdv of pmsymbol located
 
 and pgty =
 | PGTY_Type  of pty
@@ -350,6 +354,7 @@ and pstructure_item =
   | Pst_fun      of (pfunction_decl * pfunction_body)
   | Pst_qfun     of (pfunction_decl * pfunction_body)
   | Pst_alias    of (psymbol * pgamepath)
+  | Pst_qalias   of (psymbol * pgamepath)
   | Pst_include  of (pmsymbol located * bool * minclude_proc option)
   | Pst_import   of (pmsymbol located) list
 
@@ -812,6 +817,7 @@ type phltactic =
     (* Automation *)
   | Pauto
   | Plossless
+  | Pqbound
 
 and rwprgm = [
   | `IdAssign of pcodepos * pqsymbol

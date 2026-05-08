@@ -1201,8 +1201,11 @@ form_u(P):
 | LOSSLESS mp=loc(fident)
     { PFlsless mp }
 
-| QBOUND m=loc(mod_qident) LBRACKET o=qident COLON b=form_r(P) RBRACKET
-    { PFqbound (m, o, b) }
+| QBOUND mp=loc(fident) LBRACKET o=qident COLON b=form_r(P) RBRACKET
+    { PFqbound (PQBConcrete mp, o, b) }
+
+| QBOUND mp=loc(mod_qident) LBRACKET o=qident COLON b=form_r(P) RBRACKET
+    { PFqbound (PQBAdv mp, o, b) }
 
 form_field:
 | x=qident EQ f=form
@@ -1514,6 +1517,9 @@ mod_item:
 
 | PROC x=lident EQ f=loc(fident)
     { Pst_alias (x, f) }
+
+| QPROC x=lident EQ f=loc(fident)
+    { Pst_qalias (x, f) }
 
 | INCLUDE v=boption(VAR) m=loc(mod_qident) xs=bracket(minclude_proc)?
     { Pst_include (m, v, xs) }
@@ -3274,6 +3280,9 @@ interleave_info:
 
 | LOSSLESS
     { Plossless }
+
+| QBOUND 
+    { Pqbound }
 
 | PROC CHANGE side=side? pos=loc(codepos_or_range) COLON s=brace(stmt)
     { Pchangestmt (side, (unloc pos), s) }

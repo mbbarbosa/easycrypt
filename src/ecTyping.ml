@@ -1798,7 +1798,7 @@ let trans_restr_mem env (r_mem : pmod_restr_mem) =
 
 
 let trans_qbounds env tysig o =
-  let env = EcEnv.Mod.bind_params tysig.miss_params env in
+  let env = EcEnv.Mod.bind_params tysig.mis_params env in
   let loc = loc o in
   let (m,f) = unloc o in
   let ff = match m with
@@ -2534,6 +2534,9 @@ and transstruct1 (env : EcEnv.env) (st : pstructure_item located) =
     end
 
   | Pst_alias ({pl_desc = name},f) ->
+    [], [transstruct1_alias env name f]
+  
+  | Pst_qalias ({pl_desc = name},f) ->
     [], [transstruct1_alias env name f]
 
   | Pst_import ms ->
@@ -3574,14 +3577,27 @@ and trans_form_or_pattern env mode ?mv ?ps ue pf tt =
         let fpath = trans_gamepath env gp in
           f_losslessF fpath
     
-    | PFqbound (m, o, b) ->
+    | PFqbound (gp, o, b) ->
         if mode <> `Form then
           tyerror f.pl_loc env (NotAnExpression `QB);
-        let (m,mt) = trans_msymbol env m in
+        let (m,x') =
+          begin
+          match gp with
+          | PQBConcrete gp ->
+          let x' = trans_gamepath env gp in
+          (x'.x_top, Some x')
+          | PQBAdv m ->
+          let (m,_) = trans_msymbol env m in
+          (m, None)
+          end
+        in
+        let mt = NormMp.sig_of_mp env m in 
         let x = trans_qbounds env mt o in 
         let f = transf env b in
         unify_or_fail env ue b.pl_loc ~expct:EcTypes.tint f.f_ty;
-        f_qbound m x f 
+        let qm =
+        if is_none x' then Qmod m else Qproc (oget x') in
+        f_qbound qm x f 
 
     | PFequivF (ml, mr, pre, (gp1, gp2), post) ->
         if mode <> `Form then

@@ -170,7 +170,11 @@ and mty_mr = module_type * mod_restr
 and mty_mr_qb = mty_mr * qbounds 
 
 and qbounds = (xpath * int) list
+and qmod_or_proc =
+  | Qmod of EcPath.mpath
+  | Qproc of EcPath.xpath
 
+(* -------------------------------------------------------------------- *)
 and binding  = (EcIdent.t * gty)
 and bindings = binding list
 
@@ -300,7 +304,7 @@ and pr = {
 }
 
 and qbound = {
-  qb_mod : mpath;
+  qb_proc : qmod_or_proc;
   qb_orcl : xpath;
   qb_bound : form;
 }
@@ -1002,8 +1006,14 @@ let pr_equal pr1 pr2 =
   && f_equal          pr1.pr_args pr2.pr_args
   && mem_equal        pr1.pr_event.m pr2.pr_event.m
 
+let qmod_or_proc_equal p1 p2 =
+  match p1, p2 with
+  | Qproc x1, Qproc x2 -> EcPath.x_equal x1 x2
+  | Qmod m1, Qmod m2 -> EcPath.m_equal m1 m2
+  | Qproc _, Qmod _ | Qmod _, Qproc _ -> false
+
 let qb_equal qb1 qb2 =
-     EcPath.m_equal qb1.qb_mod qb2.qb_mod
+     qmod_or_proc_equal qb1.qb_proc qb2.qb_proc
   && EcPath.x_equal qb1.qb_orcl qb2.qb_orcl
   && f_equal qb1.qb_bound qb2.qb_bound
 (* -------------------------------------------------------------------- *)
@@ -1072,8 +1082,11 @@ let pr_hash pr =
     (Why3.Hashcons.combine (f_hash pr.pr_event.inv) (mem_hash pr.pr_event.m))
 
 let qb_hash qb =
+  let qmod_or_proc_hash = function
+    | Qproc x -> EcPath.x_hash x
+    | Qmod m -> EcPath.m_hash m in
   Why3.Hashcons.combine2
-    (EcPath.m_hash qb.qb_mod)
+    (qmod_or_proc_hash qb.qb_proc)
     (EcPath.x_hash qb.qb_orcl)
     (f_hash qb.qb_bound)
     
@@ -1443,10 +1456,13 @@ module Hsform = Why3.Hashcons.Make (struct
         let fve = Mid.remove pr.pr_event.m (f_fv pr.pr_event.inv) in
         let fv  = EcPath.x_fv fve pr.pr_fun in
         fv_union (f_fv pr.pr_args) (fv_add pr.pr_mem fv)
+
     | Fqbound qb ->
         let fve = f_fv qb.qb_bound in
         let fv  = EcPath.x_fv fve qb.qb_orcl in
-        EcPath.m_fv (EcPath.m_fv fv qb.qb_mod) qb.qb_mod
+        match qb.qb_proc with
+        | Qproc p -> EcPath.x_fv fv p
+        | Qmod m -> EcPath.m_fv fv m
   let tag n f =
     let fv = fv_union (fv_node f.f_node) f.f_ty.ty_fv in
       { f with f_tag = n; f_fv = fv; }

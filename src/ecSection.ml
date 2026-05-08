@@ -352,7 +352,9 @@ and on_form (aenv : aenv) (f : EcFol.form) =
     List.iter (on_form aenv) [pr.EcAst.pr_event.inv; pr.EcAst.pr_args]
 
   and on_qbound (aenv : aenv) qb =
-    on_mp aenv qb.EcAst.qb_mod;
+    match qb.EcAst.qb_proc with
+    | Qmod m -> on_mp aenv m
+    | Qproc x -> on_xp aenv x;
     on_xp aenv qb.EcAst.qb_orcl;
     on_form aenv qb.EcAst.qb_bound;
     

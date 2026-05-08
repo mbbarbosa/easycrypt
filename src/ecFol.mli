@@ -262,3 +262,7 @@ end
 
 (* -------------------------------------------------------------------- *)
 val dump_f : form -> string
+
+val proc_of_qbound : form -> qmod_or_proc
+val orcl_of_qbound : form -> xpath
+val bound_of_qbound : form -> form

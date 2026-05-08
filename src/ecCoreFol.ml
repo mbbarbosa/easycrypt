@@ -345,8 +345,8 @@ let f_pr pr_mem pr_fun pr_args (pr_event: ss_inv) =
 let f_qbound_r qb =
   mk_form (Fqbound qb) tbool
 
-let f_qbound qb_mod qb_orcl qb_bound =
-  f_qbound_r {qb_mod; qb_orcl; qb_bound} 
+let f_qbound qb_proc qb_orcl qb_bound =
+  f_qbound_r {qb_proc; qb_orcl; qb_bound} 
 
 (* -------------------------------------------------------------------- *)
 let fop_int_opp   = f_op EcCoreLib.CI_Int.p_int_opp [] (toarrow [tint]       tint)

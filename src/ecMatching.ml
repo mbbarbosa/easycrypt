@@ -757,23 +757,36 @@ let f_match_core opts hyps (ue, ev) f1 f2 =
       end
 
       | Fqbound qb1, Fqbound qb2 -> begin
-          (* Check oracle function name matches *)
+          let match_mod mp1 mp2 =
+            match EcPath.mget_ident_opt mp1 with
+            | Some id when EV.mem id !ev.evm_mod -> begin
+                match EV.get id !ev.evm_mod with
+                | Some `Unset ->
+                    ev := { !ev with evm_mod = EV.set id mp2 !ev.evm_mod }
+                | Some (`Set mp) ->
+                    if not (EcReduction.EqTest.for_mp env mp mp2) then
+                      failure ()
+                | None -> assert false
+              end
+            | _ ->
+                if not (EcReduction.EqTest.for_mp env mp1 mp2) then
+                  failure ()
+          in
+
+          (* Match procedure/oracle modules: bind metavar or check equality. *)
+          (match qb1.qb_proc, qb2.qb_proc with
+          | EcAst.Qmod mp1, EcAst.Qmod mp2 ->
+              match_mod mp1 mp2
+          | EcAst.Qproc xp1, EcAst.Qproc xp2 ->
+              if not (EcSymbols.sym_equal xp1.EcPath.x_sub xp2.EcPath.x_sub) then
+                failure ();
+              match_mod xp1.EcPath.x_top xp2.EcPath.x_top
+          | _, _ -> failure ());
+
           if not (EcSymbols.sym_equal qb1.qb_orcl.EcPath.x_sub qb2.qb_orcl.EcPath.x_sub) then
             failure ();
-          (* Match the module: bind metavar or check equality *)
-          (match EcPath.mget_ident_opt qb1.qb_mod with
-           | Some id when EV.mem id !ev.evm_mod -> begin
-               match EV.get id !ev.evm_mod with
-               | Some `Unset ->
-                   ev := { !ev with evm_mod = EV.set id qb2.qb_mod !ev.evm_mod }
-               | Some (`Set mp) ->
-                   if not (EcReduction.EqTest.for_mp env mp qb2.qb_mod) then
-                     failure ()
-               | None -> assert false
-             end
-           | _ ->
-               if not (EcReduction.EqTest.for_mp env qb1.qb_mod qb2.qb_mod) then
-                 failure ());
+          match_mod qb1.qb_orcl.EcPath.x_top qb2.qb_orcl.EcPath.x_top;
+
           doit env ilc qb1.qb_bound qb2.qb_bound
       end
 

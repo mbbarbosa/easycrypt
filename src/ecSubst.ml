@@ -611,11 +611,14 @@ let rec subst_form (s : subst) (f : form) =
      let pr_event = map_ss_inv1 (subst_form s) pr_event in
      f_pr pr_mem pr_fun pr_args pr_event
   
-  | Fqbound {qb_mod; qb_orcl; qb_bound} ->
-     let qb_mod = subst_mpath s qb_mod in
+  | Fqbound {qb_proc; qb_orcl; qb_bound} ->
+     let qb_proc = match qb_proc with
+       | Qmod m -> Qmod (subst_mpath s m)
+       | Qproc p -> Qproc (subst_xpath s p)
+     in
      let qb_orcl = subst_xpath s qb_orcl in
      let qb_bound = subst_form s qb_bound in
-     f_qbound qb_mod qb_orcl qb_bound
+     f_qbound qb_proc qb_orcl qb_bound
 
   | Fif _ | Fint _ | Ftuple _ | Fproj _ | Fapp _ ->
      f_map (subst_ty s) (subst_form s) f

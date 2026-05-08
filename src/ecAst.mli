@@ -165,6 +165,9 @@ and mty_mr = module_type * mod_restr
 and mty_mr_qb = mty_mr * qbounds 
 
 and qbounds = (xpath * int) list
+and qmod_or_proc =
+  | Qmod of EcPath.mpath
+  | Qproc of EcPath.xpath
 
 and binding  = (EcIdent.t * gty)
 and bindings = binding list
@@ -319,7 +322,7 @@ and pr = {
 }
 
 and qbound = {
-  qb_mod : mpath;
+  qb_proc : qmod_or_proc;
   qb_orcl : xpath;
   qb_bound : form;
 }
@@ -560,6 +563,8 @@ val eg_hash   : eagerF hash
 
 val pr_equal  : pr equality
 val pr_hash   : pr hash
+
+val qmod_or_proc_equal : qmod_or_proc equality
 
 val qb_equal  : qbound equality
 val qb_hash   : qbound hash

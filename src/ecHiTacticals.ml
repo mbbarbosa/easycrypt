@@ -229,6 +229,7 @@ and process1_phl (_ : ttenv) (t : phltactic located) (tc : tcenv1) =
     | Pbd_equiv (nm, f1, f2)    -> EcPhlConseq.process_bd_equiv nm (f1, f2)
     | Pauto                     -> EcPhlAuto.t_auto ~conv:`Conv
     | Plossless                 -> EcPhlHiAuto.t_lossless
+    | Pqbound                   -> EcPhlQbound.process_qbound
     | Prepl_stmt infos          -> EcPhlTrans.process_equiv_trans infos
     | Pprocrewrite (s, p, f)    -> EcPhlRewrite.process_rewrite s p f
     | Pchangestmt (s, p, c)     -> EcPhlRewrite.process_change_stmt s p c
