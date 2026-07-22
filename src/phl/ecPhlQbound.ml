@@ -7,7 +7,31 @@ open EcCoreModules
 open EcUtils
 open EcDecl
 
+(*
 
+QUANTUM COST LOGIC
+
+def workerProcConcrete:
+-> fold over all instructions:
+        - no call => accumulate 0
+        - concrete call => recursively compute with result eC
+                           if callee is classical, accumulate eC
+                           if callee is quantum, accumulate Cmag eC
+        - abstract call => call workerProcAbstract with result eC
+                           if caller is classical, accumulate eC
+                           if caller is quantum, accumulate Cmag eC
+
+def workerProcAbstract:
+       fold over all oracles Oi
+       - Oi concrete: call workerProcConcrete with result eC
+         if eC <> 0, check whether qOi is defined, and abort if not
+         if callee is classical, accumulate qOi * eC
+         if callee is quantum, accumulate qOi Cmag eC
+       - Oi abstract: call workerProcAbstract with result eC
+         if eC <> 0, check whether qOi is defined, and abort if not
+         if callee is classical, accumulate qOi * eC
+         if callee is quantum, accumulate qOi Cmag eC
+*)
 let c_id = EcIdent.create "c"
 let c    = f_local c_id EcTypes.tint   
 
