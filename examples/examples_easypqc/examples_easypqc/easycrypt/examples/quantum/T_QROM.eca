@@ -3,13 +3,6 @@ require import  FunSamplingLib (*  Birthday *) FSet.
 (*   *) import StdOrder RField RealOrder StdBigop Bigreal BRA.
 require (*  *) Matrix Tuple FinType ROM.
 
-(*
-require T_QROMaux.
-
-clone import T_QROMaux as QROM.
-*)
-
-
 type from.
 
 clone import MUniFinFun as MUFF with
@@ -58,7 +51,6 @@ qmodule type QRO = {
   include QRO_i [hq,hc]
 }.
 
-
 module QRO : QRO_i = {
   var  h : from -> hash
   var ch : int
@@ -69,6 +61,7 @@ module QRO : QRO_i = {
 }.
 
 require import DJoin.
+
 
 abstract theory Collision.
    
