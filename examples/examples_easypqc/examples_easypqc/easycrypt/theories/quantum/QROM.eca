@@ -1,0 +1,466 @@
+require import AllCore Distr List StdBigop Finite.
+require (****) QFunOra Tuple.
+import Bigreal.BRA. 
+
+type from.
+type hash.
+
+clone import QFunOra as FunOra with
+  type D <- from,
+  type R <- hash
+  proof *.
+
+abstract theory Collision.
+
+  axiom dR_uni : is_uniform dF.
+  axiom dR_fu : is_full dF.
+
+  type input.
+
+  module type AdvCol_Aux (H:PFunOra) (* { +quantum } *) = {
+    proc main(i:input) : from * from
+  }.
+
+  module Col_Aux(A:AdvCol_Aux) = {
+    proc main(i:input) = {
+      var xx;
+      F.init();
+      xx <@ A(F).main(i);
+      return (xx.`1 <> xx.`2 && F.f xx.`1 = F.f xx.`2);
+    }
+  }.
+
+  (* Thm 3.9 in MZ Thesis: N is the card of hash type. *)
+  (* This version allows auxilliary information and q
+     to be set interdependently *)
+  (* Thm 2.1 in qrom_axioms.pdf *)
+  lemma pr_col_aux i_ q (A<:AdvCol_Aux { (* +quantum, *) -F} ) &m:
+  (forall (O <: PFunOra), 
+    hoare [A(FunOra_Wrap(O)).main : FunOra_Wrap.c = 0 /\  FunOra_Wrap.c_q = 0 ==>
+                                       FunOra_Wrap.c = 0 /\ FunOra_Wrap.c_q <= q]) => 
+   let r = 1%r / (size (to_seq predT <:hash>))%r in
+    Pr[Col_Aux(A).main(i_) @ &m : res] <= (27 *(q + 2)^3)%r * r. 
+  admitted.
+  (* Note: there is a finiteness constraint on the co-domain
+     that is implicit in the funiform assumption *)
+  (* To do: what is the bound if there are additional classical queries? *)
+
+end Collision.
+
+abstract theory QROM_Fundamental_Lemma.
+
+clone import Tuple as TupleXY with 
+  type t <- from * hash.
+
+type result.
+
+module type AdvRO (H : PFunOra) (* { +quantum } *) = {
+  proc main() : result
+}.
+
+module QRO_main_D(A : AdvRO) = {
+  proc main() = {
+    var r;
+    F.init();
+    r <@ A(F).main();
+    return r;
+  }
+}.
+
+(* 
+    Mark Zhandry
+    Secure Identity-Based Encryption in the Quantum Random Oracle Model
+    https://eprint.iacr.org/2012/076.pdf
+    Theorem 3.1.  *)
+(* Thm 4.1 in Mark Zhandry thesis *)
+(* Thm 3.1 in qrom_axioms.pdf *)
+lemma dA_split q c (A<:AdvRO{  (* quantum *) -FunOra_Wrap}) &m:
+  (forall (O <: PFunOra), 
+    hoare [A(FunOra_Wrap(O)).main : FunOra_Wrap.c = 0 /\  FunOra_Wrap.c_q = 0 ==>
+                                      FunOra_Wrap.c <= c /\ FunOra_Wrap.c_q <= q]) => 
+   exists (C : (from * hash) list -> result -> real),
+    forall r,
+    Pr[ QRO_main_D(A).main() @ &m : res = r] = 
+    big predT (fun l => 
+      C l r * mu dF (fun fx => all (fun (xr:_*_) => fx xr.`1 = xr.`2) l))
+        (wordn (2*q+c)).
+admitted.
+
+(* could prove above from this simpler version *)
+(* To Do: have a notion of trusted axiom with the semantics of lemma + admit,
+   and have all the library axioms have this modifier *)
+lemma dA_split_simple f r q c (A<:AdvRO{ (* quantum *) -FunOra_Wrap}) &m:
+   dF = dunit f =>
+  (forall (O <: PFunOra), 
+    hoare [A(FunOra_Wrap(O)).main : FunOra_Wrap.c = 0 /\  FunOra_Wrap.c_q = 0 ==>
+                                         FunOra_Wrap.c_q <= q /\ FunOra_Wrap.c <= c]) => 
+   exists (C : (from * hash) list -> real),
+    Pr[ QRO_main_D(A).main() @ &m : res = r] = 
+    big (fun l => (all (fun (xr:_*_) => f xr.`1 = xr.`2) l)) C (wordn (2*q+c)).
+admitted.
+
+end QROM_Fundamental_Lemma.
+
+
+(* -------------------------------------------------------------------------- *)
+(* Biased distribution over boolean return true with probability p            *)   
+
+(* -------------------------------------------------------------------------- *)
+(* Semi Constant Definition Property *)
+abstract theory SemiConstDistr.
+
+require import FunSamplingLib.
+clone import DFunBiasedSingle with
+   type X <- from.
+(*  we inherit here in MUFF the assumption on finiteness of X   *)
+import MUFF.
+
+op k : int.
+
+type result = bool * from * from list.
+
+op good(bf : from -> bool, x : from, l : from list) = 
+     bf x /\ (forall x', x' \in l => !bf x') /\ size l <= k.
+
+module type AdvSCD (H: PFunOra) (* { +quantum } *) = {
+  proc main() : result
+}.
+
+op dR : hash distr. 
+
+module SCD (A:AdvSCD) = {
+  var bf : from -> bool
+  var x : from
+  var l : from list
+
+  proc _F0(p:real) = {
+    var c, y;
+    bf <$ dbfun p;
+    F.init();
+    y  <$ dR; 
+    (c,x,l)  <@ A(F).main();
+    return (c /\ good bf x l);
+  }
+
+  proc _F1(p:real) = {
+    var c, y;
+    bf <$ dbfun p;
+    F.init();
+    y  <$ dR; 
+    F.f <- fun m => if bf m then y else F.f m;
+    (c,x,l)  <@ A(F).main();
+    return (c /\ good bf x l);
+  }
+}.
+
+  (* Thm 4.1 in qrom_axioms.pdf *) 
+lemma advantage q lambda (A<:AdvSCD{-SCD,-F}) &m:
+  (forall (O <: PFunOra), 
+    hoare [A(FunOra_Wrap(O)).main : FunOra_Wrap.c = 0 /\  FunOra_Wrap.c_q = 0 ==>
+                                       FunOra_Wrap.c = 0 /\ FunOra_Wrap.c_q <= q]) => 
+  0%r <= lambda <= 1%r =>
+  dF = dfun (fun _ => dR) =>
+  `| Pr[SCD(A)._F0(lambda) @ &m : res] - Pr[SCD(A)._F1(lambda) @ &m: res] | 
+   <= (2%r * q%r + k%r + 1%r)^4/ 6%r * lambda^2.
+admitted.
+
+end SemiConstDistr.
+
+abstract theory SmallRange.
+
+clone import MUniFinFun as FromFunD with 
+    type t <- from.
+  (* we inherit finiteness axiom for from *)
+
+type SR.
+
+ op enum : SR list.
+ axiom enum_spec: forall (x : SR), count (pred1 x) enum = 1.
+
+(* Rename UniFinFun to something without Uni *)
+clone import MFinite as FinSR with
+   type t <- SR,
+   op Support.enum <- enum
+   proof Support.enum_spec by exact enum_spec
+   proof *.
+
+clone import MUniFinFun as SRFunD with
+   type t <- SR,
+   op FinT.enum <- enum
+   proof FinT.enum_spec by exact enum_spec
+   proof *.
+
+op _r =  SRFunD.FinT.card.
+
+op dR : hash distr. 
+
+op difun_SR = FromFunD.dfun (fun _ => dunifin).
+
+module type AdvSR (H:PFunOra) (* { +quantum } *) = {
+  proc main() : bool
+}.
+
+module SR : PFunOra = {
+  var rh : SR -> hash
+  var fr : from -> SR
+  proc init () = {
+    rh <$ SRFunD.dfun (fun _ => dR); (* random function from SR.t -> hash *)
+    fr <$ difun_SR;  (* random function from from -> SR.t *)
+    F.f <- rh \o fr; 
+  } 
+
+  include F [f_sup, f]
+}.
+
+module SRO = F.
+
+module IND_SR (H:PFunOra, A:AdvSR) = {
+  proc main() : bool = {
+    var b;
+    b <@ A(H).main();
+    return b;
+  }
+}.
+
+(* This bound comes from Corollary 4.15 of Mark Zhandry's thesis *)
+  (* Thm 5.1 in qrom_axioms.pdf *)
+lemma advantage (q:int)  (A<:AdvSR{-SR,-F,-FunOra_Wrap}) &m:
+  (forall (O <: PFunOra), 
+    hoare [A(FunOra_Wrap(O)).main : FunOra_Wrap.c = 0 /\  FunOra_Wrap.c_q = 0 ==>
+                                     FunOra_Wrap.c = 0 /\ FunOra_Wrap.c_q <= q]) => 
+  0 < _r => 
+  `| Pr[IND_SR(SRO,A).main() @ &m : res] - Pr[IND_SR(SR,A).main() @ &m : res] | <= 
+      (27 * q^3)%r / _r%r.
+ admitted.
+
+end SmallRange.
+
+theory SmallRangeStrong.
+
+clone import MUniFinFun as FromFunD with 
+    type t <- from.
+  (* we inherit finiteness axiom for from *)
+
+type SR.
+
+ op enum : SR list.
+ axiom enum_spec: forall (x : SR), count (pred1 x) enum = 1.
+
+(* Rename UniFinFun to something without Uni *)
+clone import MFinite as FinSR with
+   type t <- SR,
+   op Support.enum <- enum
+   proof Support.enum_spec by exact enum_spec
+   proof *.
+
+clone import MUniFinFun as SRFunD with
+   type t <- SR,
+   op FinT.enum <- enum
+   proof FinT.enum_spec by exact enum_spec
+   proof *.
+
+op _r =  SRFunD.FinT.card.
+
+op dR : hash distr. 
+
+op difun_SR = FromFunD.dfun (fun _ => dunifin).
+
+clone import QFunOra as FunOraStrong with
+  type D <- from,
+  type R <- SR * hash
+  proof *.
+
+module type AdvSR (H:FunOraStrong.PFunOra) (* { +quantum } *) = {
+  proc main() : bool
+}.
+
+
+module SR : FunOraStrong.PFunOra = {
+  var rh : SR -> hash
+  var fr : from -> SR
+  proc init () = {
+    rh <$ SRFunD.dfun (fun _ => dR); (* random function from SR.t -> hash *)
+    fr <$ difun_SR;  (* random function from from -> SR.t *)
+    F.f <- fun x => (fr x, rh (fr x)); 
+  } 
+
+  include F [f_sup, f]
+}.
+
+module SRO = F.
+
+module IND_SR (H:PFunOra, A:AdvSR) = {
+  proc main() : bool = {
+    var b;
+    b <@ A(H).main();
+    return b;
+  }
+}.
+
+(* The proof of Theorem 4.16  gives a bound that is the summation
+   of that in Corollary 4.15 and that in Theorem 4.9
+   ( C(q + 2)^3/N) where C <= 27 is a constant and N=r. *)
+  (* Thm 5.2 in qrom_axioms.pdf *)
+lemma advantage (q:int)  (A<:AdvSR{-SR,-FunOraStrong.F,-FunOraStrong.FunOra_Wrap}) &m:
+  (forall (O <: FunOraStrong.PFunOra), 
+    hoare [A(FunOraStrong.FunOra_Wrap(O)).main : 
+        FunOraStrong.FunOra_Wrap.c = 0 /\  FunOraStrong.FunOra_Wrap.c_q = 0 ==>
+                FunOraStrong.FunOra_Wrap.c = 0 /\ FunOraStrong.FunOra_Wrap.c_q <= q]) => 
+  0 < _r => 
+  `| Pr[IND_SR(SRO,A).main() @ &m : res] - Pr[IND_SR(SR,A).main() @ &m : res] | <= 
+      (54 * (q+2)^3)%r / _r%r.
+ admitted.
+
+end SmallRangeStrong.
+
+(*
+(* This is a PRF assumption against quantum adversaries,
+   with quantum access to the prf *)
+abstract theory T_PRF.
+
+type key.
+op dkey : key distr.
+op F : key -> from -> hash.
+
+quantum module type AdvRO (H:QRO) = {
+  proc main() : bool
+}.
+
+module PRF : QRO_i = {
+  var k : key
+  proc init() = { QRO.ch <- 0; k <$ dkey; }
+  quantum proc h{x:from} = { QRO.ch <- QRO.ch + 1; return F k x; } 
+}.
+
+module IND_QRO (R:QRO_i, A: AdvRO) = {
+  proc main() : bool = {
+    var b;
+    R.init();
+    b <@ A(R).main();
+    return b;
+  }
+}.
+
+(* The PRF-advantage is defined as :
+   `| Pr[IND_QRO(PRF, A).main() @ &m : res] - Pr[IND_QRO(QRO, A).main() @ &m : res] | 
+  The restriction on the number of queries can be obtained by adding the hypothesis:
+   hoare [IND_QRO(QRO, A).main : true ==> QRO.ch <= q] or
+   hoare [IND_QRO(PRF, A).main : true ==> QRO.ch <= q] 
+  
+*)
+
+end T_PRF.
+
+(* -------------------------------------------------------------------- *)
+(* Finding q+1 distinct queries                                         *)
+(* ---------------------------------------------------------------------*)
+
+abstract theory T_Distinct.
+
+(* This assume that the type hash is finite and contains "card" elements *)
+clone export FinType.FinType with 
+  type t <- hash.
+
+quantum module type Adv_DistinctQueries (H:QRO) = {
+  proc main(q:int) : (from * hash) list
+}.
+
+module DistinctQueries(A:Adv_DistinctQueries) = {
+  proc main(q:int) : bool = {
+    var fh : (from * hash) list;
+    QRO.init();
+    fh <@ A(QRO).main(q);
+    return size fh = q + 1 /\ all (fun (p: from * hash) => QRO.h p.`1 = p.`2) fh; 
+  }
+}.
+
+  (* Thm 6.1 in qrom_axioms.pdf *)
+axiom bound_distinct (q_:int) (A<:Adv_DistinctQueries{-QRO}) &m :  
+  hoare [DistinctQueries(A).main : q = q_ ==> QRO.ch <= q_] => 
+    Pr[DistinctQueries(A).main(q_) @ &m : res] <= (q_ + 1)%r / FinT.card%r.
+
+end T_Distinct.
+
+(*
+abstract theory T_PRG.
+
+type seed.
+op G : seed -> hash.
+
+abstract theory T_OracleSecurePRG.
+
+op [lossless uniform full] dF : (from -> seed) distr.
+
+(* G is an oracle-secure PRG if (G ∘ F) is a PRF for random F. *)
+module PRF : QRO_i = {
+  var f : from -> seed
+  proc init() = { f <$ dF; }
+  quantum proc h {x : from} = { return G (f x); }
+}.
+
+(* G is oracle-secure if for polynomial q,
+axiom advantage q (A <: AdvRO[main: `{Inf, #H.h : q}]) &m:
+`| Pr[IND_QRO(PRF, A).main() @ &m : res] - Pr[IND_QRO(QRO, A).main() @ &m : res] | <= negl.
+*)
+
+end T_OracleSecurePRG.
+
+abstract theory T_StandardSecurePRG.
+
+op [lossless uniform full] dseed : seed distr.
+
+(* random number generation *)
+module type RGi = {
+  proc init() : unit
+  proc sample() : hash
+}.
+
+module type RG = {
+  include RGi [sample]
+}.
+
+(* adversary *)
+quantum module type AdvPRG (G : RG) = {
+  proc main() : bool
+}.
+
+module IND_PRG(G : RGi, D : AdvPRG) = {
+  proc main() : bool = {
+    var b;
+    G.init();
+    b <@ D(G).main();
+    return b;
+  }
+}.
+
+module PRG : RGi = {
+  var s : seed
+  proc init() = {
+    s <$ dseed;
+  }
+  proc sample() = {
+    return G s;
+  }
+}.
+
+module RG : RGi = {
+  var r : hash
+  proc init() = {
+    r <$ dhash;
+  }
+  proc sample() = {
+    return r;
+  }
+}.
+
+(* G is standard-secure if for polynomial q,
+axiom advantage q (A <: AdvPRG[main: `{Inf, #G.sample : q}]) &m:
+`| Pr[IND_PRG(PRG, A).main() @ &m : res] - Pr[IND_PRG(RG, A).main() @ &m : res] | <= negl.
+*)
+
+end T_StandardSecurePRG.
+
+end T_PRG.
+
+*)
+*)

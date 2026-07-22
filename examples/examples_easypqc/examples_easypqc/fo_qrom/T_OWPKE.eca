@@ -1,0 +1,218 @@
+require import AllCore RealExp Distr DBool List FinType.
+
+type msg.
+type pkey.
+type cph.
+type rand.
+
+(**************************************************************)
+(*                                                            *)
+(*                   PKE Definitions                          *)
+(*                                                            *)
+(**************************************************************)
+
+op enc : pkey -> msg -> rand -> cph.
+
+op [lossless]kgen : pkey distr.
+
+clone import MUniFinFun with
+   type t <- msg.
+
+clone import FinType as FinR with
+   type t <- rand.
+
+op [lossless uniform full]md : msg distr.
+op [lossless full]rd : rand distr.
+op hd = dfun (fun _ => rd).
+
+module type RO_t = {
+   proc oc(x : msg) : rand
+   qproc o(x : msg) : rand
+}.
+
+module RO : RO_t = {
+   var h : msg -> rand
+   proc init() = { h <$ hd; }
+   proc oc(x : msg) : rand = {
+      return h x;
+   }
+   qproc o(x : msg) : rand = {
+      return h x;
+   }
+}.
+
+qmodule type INDAdv = {
+   proc dist(pk : pkey, m0 m1 : msg, c : cph) : bool
+}.
+
+module INDKPA(A : INDAdv) = {
+   proc main() : bool = {
+      var b, pk, m0, m1, mb, c, b', r;
+      b <$ {0,1};
+      pk <$ kgen;
+      m0 <$ md;
+      m1 <$ md;
+      mb <- if b then m1 else m0;
+      r <$ rd;
+      c <- enc pk mb r;
+      b' <@ A.dist(pk, m0, m1,c);
+      return b = b';
+   }
+}.
+
+qmodule type OWAdv = {
+   proc find(pk : pkey, c : cph) : msg
+}.
+
+module OW(A : OWAdv)  = {
+   proc main() = {
+      var pk, m, c, m',r;
+      pk <$ kgen;
+      m <$ md;
+      r <$ rd; 
+      c <- enc pk m r;
+      m' <@ A.find(pk,c);
+      return m = m';
+   }
+}.
+
+qmodule type OWAdv_ROM(O : RO_t) = {
+   include OWAdv
+}.
+
+module OW_ROM(A : OWAdv_ROM)  = {
+   proc main() = {
+      var pk, m, c, m',r;
+      RO.init();
+      pk <$ kgen;
+      m <$ md;
+      r <@ RO.oc(m); 
+      c <- enc pk m r;
+      m' <@ A(RO).find(pk,c);
+      return m = m';
+   }
+}.
+
+(***************** LR GAME INDKPA *****************)
+
+module INDKPA0(A : INDAdv) = {
+   var m0,m1 : msg
+   proc main() : bool = {
+      var pk, mb, c, b', r;
+      pk <$ kgen;
+      m0 <$ md;
+      m1 <$ md;
+      mb <- m0;
+      r <$ rd;
+      c <- enc pk mb r;
+      b' <@ A.dist(pk, m0, m1,c);
+      return b';
+   }
+}.
+
+module INDKPA1(A : INDAdv) = {
+   var m0,m1 : msg
+   proc main() : bool = {
+      var pk, mb, c, b', r;
+      pk <$ kgen;
+      m0 <$ md;
+      m1 <$ md;
+      mb <- m1;
+      r <$ rd;
+      c <- enc pk mb r;
+      b' <@ A.dist(pk, m0, m1,c);
+      return b';
+   }
+}.
+
+require QLorR. 
+clone import QLorR as LorR' with
+  type input <- unit.  
+
+section.
+
+  declare qmodule A <: INDAdv {-INDKPA0,-INDKPA1}.
+
+  lemma pr_KPA_LR &m: 
+    islossless A.dist => 
+    `| Pr[INDKPA1(A).main() @ &m : res] - Pr[INDKPA0(A).main() @ &m : res] | =
+     2%r * `| Pr[INDKPA(A).main() @ &m : res] - 1%r/2%r |.
+  proof.
+    move => A_ll.
+    have -> : Pr[INDKPA(A).main() @ &m : res] = 
+              Pr[RandomLR(INDKPA1(A), INDKPA0(A)).main() @ &m : res].
+    + byequiv (_ : ={glob A} ==> ={res})=> //.
+      proc.      
+      seq 1 1 : (={glob A, b}); first by rnd.
+      if{2}; inline *; wp; call (_: true); auto => /> /#.
+    rewrite -(pr_AdvLR_AdvRndLR (INDKPA1(A)) (INDKPA0(A)) &m) 2:/#.
+    byphoare => //; proc.
+    by call A_ll;islossless.
+  qed.
+
+end section.
+
+(**************************************************************)
+(*                                                            *)
+(*                   IND-KPA => OW                            *)
+(*                                                            *)
+(**************************************************************)
+
+module Reduction(A : OWAdv) : INDAdv = {
+   var m' : msg
+   proc dist(pk : pkey, m0 m1 : msg, c : cph) = {
+      m' <@ A.find(pk,c);
+      return m' = m1;
+   }
+}.
+
+section.
+
+  declare qmodule A <: OWAdv {-INDKPA1,-INDKPA0}.
+  
+lemma indkpa1_ow &m : 
+   Pr [ INDKPA1(Reduction(A)).main() @ &m : res ] = Pr [ OW(A).main() @ &m : res ].
+proof.
+byequiv => //.
+by proc;inline *;wp;call(_:true);wp;rnd;wp;rnd;rnd{1};auto => /> /#.
+qed.
+
+lemma indkpa0_ow &m : 
+  islossless A.find =>
+  Pr [ INDKPA0(Reduction(A)).main() @ &m : res ] = mu1 md witness.
+proof.
+move => A_ll.
+byphoare => //.
+proc;inline *.
+swap 9 2; swap 3 7; wp;rnd (fun m => m = Reduction.m').
+call(_: true); auto => />.
+rewrite kgen_ll /= => pk _ _.
+rewrite md_ll /= => m0 _ _.
+rewrite rd_ll /= => r _ _ m'.
+by rewrite -/(pred1 m') !mu1_uni_ll ?md_uni ?md_ll !md_fu /=.
+qed.
+
+lemma main_lr &m : 
+   islossless A.find =>
+   Pr [ OW(A).main() @ &m : res ]  <= 
+    `| Pr [ INDKPA1(Reduction(A)).main() @ &m : res ] - 
+        Pr [ INDKPA0(Reduction(A)).main() @ &m : res ] |  + mu1 md witness.
+proof. 
+move => A_ll.
+have -> := indkpa1_ow &m.
+have -> := indkpa0_ow &m A_ll.
+smt().
+qed.
+
+lemma main &m : 
+   islossless A.find =>
+   Pr [ OW(A).main() @ &m : res ]  <= 
+    2%r * `| Pr [ INDKPA(Reduction(A)).main() @ &m : res ] - 
+        1%r/2%r |  + mu1 md witness.
+proof. 
+move => A_ll.
+have <- :=  pr_KPA_LR (Reduction(A)) &m _; 1: by islossless.
+by have -> := main_lr &m A_ll.
+qed.
+
+end section.

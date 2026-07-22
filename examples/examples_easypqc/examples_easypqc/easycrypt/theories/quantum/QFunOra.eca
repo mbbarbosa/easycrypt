@@ -1,0 +1,43 @@
+require import AllCore Distr.
+
+type D.
+type R.
+op (+) : R -> R -> R.
+op dF : (D -> R) distr.
+
+module type FunOra = {
+  proc init(): unit
+  proc f(_ : D): R
+  proc f_sup{_ : D, _ : R} : unit
+}.
+
+module type PFunOra = {
+  proc f(_: D): R 
+  proc f_sup{_ : D, _ : R} : unit
+}.
+
+module F : FunOra = {
+  var f : D -> R
+
+  proc init(): unit = { f <$ dF; }
+
+  proc f(x : D) : R = { return f x; }
+
+  proc f_sup{x:D, y : R} : unit = {
+    x, y <* U[(x, y + f x)];
+  }
+}.
+
+module FunOra_Wrap(O : PFunOra) : PFunOra = {
+  var c, c_q : int
+
+  proc f(x: D) : R = { 
+     var r; r <@ O.f(x); c <- c + 1; return r; 
+  }
+
+  proc f_sup{x : D, y : R} : unit = { 
+    O.f_sup{x,y};
+    c_q <- c_q + 1;
+  }
+}.
+

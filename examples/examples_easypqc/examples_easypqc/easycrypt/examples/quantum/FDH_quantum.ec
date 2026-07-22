@@ -349,11 +349,12 @@ section OW.
 
 declare qmodule A <: AdvEUF_QROM { -QRO, -EUF, -B, -Wrap, -SCD}.
 declare qmodule H <: QRO{-A, -Wrap}.
-
+declare module S <: OrclSign{-A}.
+ 
 declare axiom A_ll (H <: QRO{-A}) (S <: OrclSign{-A}) : 
   islossless S.sign => islossless H.hq => islossless H.hc => islossless A(H, S).main.
 
-declare axiom qbound1 (S <: OrclSign{-A}):
+declare axiom qbound1:
   qbound A(H,S).main [H.hq : qhq].
 
 declare axiom hoare_bound (H<:QRO{-A, -Wrap}) (S<:OrclSign{-A, -Wrap}) :

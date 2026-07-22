@@ -1,0 +1,61 @@
+require import AllCore List Distr DBool DProd DList DInterval IntDiv SmtMap.
+require import  FunSamplingLib (*  Birthday *) FSet.
+(*   *) import StdOrder RField RealOrder StdBigop Bigreal BRA.
+require (*  *) Matrix Tuple FinType ROM.
+
+
+
+type from.
+
+clone import MUniFinFun as MUFF with
+  type t <- from.
+
+type hash.
+
+clone  MUniFinFun as MUFFH with
+  type t <- hash.
+
+op [lossless uniform full ] dhash : hash distr.
+
+clone ROM as ROM_ with
+  type in_t <- from,
+  type out_t <- hash,
+  op dout <- fun _ => dhash,
+  type d_out_t <- bool. (* FIX-ME: FIX LATER? *)
+
+clone ROM_.LazyEager as LE with 
+  theory FinType <- MUFF.FinT.
+
+op dfhash : (from -> hash) distr = dfun (fun _ => dhash).
+
+lemma dfhash_ll: is_lossless dfhash.
+proof. apply dfun_ll => ?;apply dhash_ll. qed.
+
+lemma dfhash_uni: is_uniform dfhash.
+proof. apply dfun_uni => ?; apply dhash_uni. qed.
+
+lemma dfhash_fu: is_full dhash => is_full dfhash.
+proof. move=> dhash_fu; apply dfun_fu => ?; apply dhash_fu. qed.
+
+hint solve 0 random : dfhash_ll dfhash_uni dfhash_fu.
+
+qmodule type QRO_i = {
+  proc init () : unit
+  qproc hq(_:from) : hash 
+  proc hc(_:from) : hash 
+}.
+
+
+qmodule type QRO = {
+  include QRO_i [hq,hc]
+}.
+
+
+module QRO : QRO_i = {
+  var  h : from -> hash
+  var ch : int
+  proc init() = {ch <- 0;  h <$ dfhash; }
+
+  qproc hq (x:from) = { return h x; }
+  proc hc (x:from) = { ch <- ch + 1; return h x;}
+}.

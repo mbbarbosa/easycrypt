@@ -44,7 +44,7 @@ let check (a : EcDecl.axiom) (callee : xpath) (f : xpath) (o : xpath) (env : env
     end *)
     let s = f_bind_mod (f_subst_init ()) (mget_ident qb.qb_orcl.x_top) f.x_top env in
     let f' = EcCoreSubst.Fsubst.f_subst s form in
-    (*Format.eprintf "f'2 = %s\n%!" (EcFol.dump_f f');*)
+    Format.eprintf "f'2 = %s\n%!" (EcFol.dump_f f');
     begin
     match f'.f_node with     
       |Fqbound qb -> (*qmod_or_proc_equal qb.qb_proc (Qproc callee) &&*) x_equal qb.qb_orcl o && EcSymbols.sym_equal callee.x_sub qb.qb_proc.x_sub

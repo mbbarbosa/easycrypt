@@ -1,0 +1,59 @@
+require import AllCore Distr Finite.
+require QFunOra.
+
+(** A PRF is a family of functions F from domain D to finite range R
+    indexed by a keyspace K equipped with a (lossless) distribution dK. *)
+
+type D, R.
+
+op (+) : R -> R -> R.
+
+op [uniform lossless full]dF : (D -> R) distr.
+
+clone import QFunOra as FunOra with
+   type D <- D,
+   type R <- R,
+   op (+) <- (+),
+   op dF <- dF
+   proof *.
+
+
+type K.
+
+op [lossless]dK : K distr.
+
+op F : K -> D -> R.
+
+(* We need to decide on how/where to annotate restrictions 
+   At the moment this is seen as a default.
+   Way to go: treat this as an initializer restriction. 
+   Require user to explicitly override/overwrite previous
+   restrictions? Use "clear" or ++ or --?
+*)
+
+module type Distinguisher (F : PFunOra) (* { +quantum } *) = {
+  proc distinguish(): bool
+}.
+
+module RF : FunOra = F.
+
+module PRF : FunOra = {
+  var k : K
+
+  proc init() = { k <$ dK; }
+  proc f(x: D) = { return F k x; }
+  proc f_sup{x : D, y : R} : unit = { 
+    x, y <* U[(x, y + F k x)];
+  }
+}.
+
+module IND (OF : FunOra, D : Distinguisher) = {
+  proc main(): bool = {
+    var b;
+
+    OF.init();
+    b <@ D(F).distinguish();
+    return b;
+  }
+}. 
+

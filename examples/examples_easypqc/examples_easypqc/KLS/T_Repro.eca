@@ -1,0 +1,181 @@
+require T_QROM.
+require import AllCore List Int Distr RealExp SmtMap FinType StdOrder StdBigop.
+(*---*) import Bigreal.BRA Bigreal RField RealOrder.
+
+(* **************************************************************************** *)
+(*                                Reprograming                                  *)
+(* **************************************************************************** *)
+
+type side.
+
+clone import T_QROM as QROM.
+
+type pT = (from * side) distr.
+const rep_ctr : int.
+const query_ctr : int.
+axiom rep_ctr_ge0 : 0 <= rep_ctr.
+axiom query_ctr_ge0 : 0 <= query_ctr.
+
+op p_max(d : pT) =
+ listmax Real.(<=) 0%r (map (fun x => mu d (fun p : _ * _ => x = p.`1)) QROM.MUFF.FinT.enum).
+
+lemma p_maxE (p:pT) (x: from) : mu p (fun p : _ * _ => x = p.`1) <= p_max p.
+proof.
+  apply listmax_gt_in.
+  + by apply ler_trans. + by apply ler_total.
+  apply mapP; exists x => //=; apply MUFF.FinT.enumP.
+qed.
+
+lemma p_max_ge0 (p:pT) : 0%r <= p_max p.
+proof. have := (p_maxE p witness); smt(mu_bounded). qed.
+
+const p_max_bound : real.
+
+module type QRO_ri = {
+    include QRO_i
+    proc set(x : from, Y : hash) : unit
+}.
+
+module type QRO_r = {
+    include QRO_ri [-init]
+}.
+
+(*
+/!\ We remove this may break KLS  
+*)
+
+module Rep_QRO : QRO_ri = {
+
+   var f : from -> hash
+   var prog_list : (from*hash) list  
+   var ch : int 
+
+   proc init() : unit = {
+     prog_list <- [];
+     ch <- 0;
+     f <$ dfhash;
+   }
+
+   proc hc (x: from) = { 
+     var c;
+     var tmp;     
+
+     ch <- ch + 1; 
+     tmp <- assoc prog_list x;
+     c <- if tmp = None then f x else oget tmp;
+     return c; 
+   }
+
+   qproc hq (x: from) = { 
+     var c;
+     var tmp;     
+
+     ch <- ch + 1; 
+     tmp <- assoc prog_list x;
+     c <- if tmp = None then f x else oget tmp;
+     return c; 
+   }
+   proc set (x : from, y: hash) : unit = {
+     prog_list <- (x,y)::prog_list;
+   }
+}.
+
+module Wrapped_QRO (O: QRO) : QRO_ri = {
+   var prog_list : (from*hash) list  
+   var ch : int 
+
+   proc init() : unit = {
+     prog_list <- [];
+     ch <- 0;
+   }
+
+   proc hc (x: from) = { 
+     var c;
+     var tmp;     
+
+     ch <- ch + 1; 
+     tmp <- assoc prog_list x;
+     c <@ O.hc (x); 
+     c <- if tmp = None then c else oget tmp;
+     return c; 
+   }
+
+   qproc hq (x: from) = { 
+     var c;
+     var tmp;     
+
+     tmp <- assoc prog_list x;
+     c <@ O.hq (x); 
+     c <- if tmp = None then c else oget tmp;
+     return c; 
+   }
+
+   proc set (x : from, y: hash) : unit = {
+     prog_list <- (x,y)::prog_list;
+   }
+}.
+
+module type RepO_ti = {
+    proc init(b : bool) : unit
+    proc repro(p : pT) : from*side
+}.
+
+module type RepO_t = {
+    include RepO_ti [-init]
+}.
+
+module RepO(QRO: QRO_r)   : RepO_ti = {
+    var ctr : int
+    var b : bool
+    var se : bool
+
+    proc init (in_b : bool) : unit = {
+        ctr <- 0;
+        b <- in_b;
+        se <- true;
+    }
+
+    proc repro(p: pT) : from*side = {
+        var x,y,s;
+        se <- if p_max p <= p_max_bound then se else false;
+        ctr <- ctr + 1;
+        (x,s) <$ p;
+        if (b) {
+            y <$ dhash;
+            QRO.set(x,y);
+        } 
+        return (x,s);
+    }
+}.
+
+qmodule type DistA (RO: QRO, O: RepO_t) = {
+    proc distinguish ( ) : bool {RO.hc, RO.hq, O.repro}
+}.
+
+module ReproGame (RO: QRO_i, A: DistA) = {
+   module Wrap = Wrapped_QRO(RO)
+   module O = RepO(Wrap)
+ 
+   proc main (b: bool) : bool = {
+        var b';
+        RO.init();
+        Wrap.init();
+        O.init(b);
+        b' <@ A(Wrap, O).distinguish();
+        return (b');
+    } 
+}.
+
+axiom qrom_reprogramming &m 
+   (* The restriction implies that A can not access glob of
+       Wrapped_QRO, RepO,  QRO *)
+   (A <: DistA {-ReproGame}):
+   hoare[ReproGame(QRO,A).main : 
+     Wrapped_QRO.ch = 0 /\ RepO.ctr = 0 /\ RepO.se 
+     ==> Wrapped_QRO.ch <= query_ctr /\ 
+     RepO.ctr <= rep_ctr /\ RepO.se]
+  =>
+ `|Pr[ReproGame(QRO,A).main(false) @ &m:res]
+ - Pr[ReproGame(QRO,A).main(true) @ &m:res]|
+  <= (3%r/2%r) * rep_ctr%r * sqrt (query_ctr%r*p_max_bound). 
+
