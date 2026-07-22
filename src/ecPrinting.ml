@@ -2072,11 +2072,8 @@ and pp_form_core_r
         (pp_form ppep) pr.pr_event.inv
         
   | Fqbound qb ->  
-      let pp_qmod_or_proc ppe fmt = function
-        | Qproc p -> pp_funname ppe fmt p
-        | Qmod m -> pp_msymbol fmt (PPEnv.mod_symb ppe m) in    
       Format.fprintf fmt "Qbound %a (%a : %a)"
-        (pp_qmod_or_proc ppe) qb.qb_proc
+        (pp_funname ppe) qb.qb_proc
         (pp_funname ppe) qb.qb_orcl
         (pp_form ppe) qb.qb_bound
 

@@ -200,7 +200,7 @@ and pformula_r =
   | PFeqveq   of glob_or_var list * (pmsymbol pair) option
   | PFeqf     of pformula list
   | PFlsless  of pgamepath
-  | PFqbound  of pqboundhead * pqsymbol * pformula
+  | PFqbound  of pgamepath * pqsymbol * pformula
   | PFscope   of pqsymbol * pformula
 
   | PFhoareF   of psymbol option * pformula * pgamepath * pformula
@@ -219,9 +219,6 @@ and pgtybindings = pgtybinding list
 and pgscbinding  = psymbol list * pty
 and pgscbindings = pgscbinding list
 
-and pqboundhead =
-| PQBConcrete of pgamepath
-| PQBAdv of pmsymbol located
 
 and pgty =
 | PGTY_Type  of pty
@@ -327,7 +324,6 @@ and pqmodule_decl = {
 (*and pqbounds = (pqsymbol * int) list*)
 
 and pmodule_def = {
-  ptm_quantum : [`Classical | `Quantum];
   ptm_header : pmodule_header;
   ptm_body   : pmodule_expr;
 }

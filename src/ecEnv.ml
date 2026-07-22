@@ -1748,7 +1748,13 @@ module Fun = struct
     let fd1, mem1 = actmem_body ml fun1 in
     let fd2, mem2 = actmem_body mr fun2 in
     mem1, fd1, mem2, fd2, Memory.push_active_ts mem1 mem2 env
+
+  let is_quantum x env =
+    let f = by_xpath x env in
+    f.f_quantum = `Quantum 
+
 end
+
 
 (* -------------------------------------------------------------------- *)
 module Var = struct

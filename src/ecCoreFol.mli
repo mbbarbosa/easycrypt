@@ -134,7 +134,7 @@ val f_pr_r : pr -> form
 val f_pr   : memory -> xpath -> form -> ss_inv -> form
 
 val f_qbound_r : qbound  -> form
-val f_qbound : qmod_or_proc -> xpath -> form -> form
+val f_qbound : xpath -> xpath -> form -> form
 (* soft-constructors - unit *)
 val f_tt : form
 

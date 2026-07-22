@@ -1885,6 +1885,30 @@ and transmodsig (env : EcEnv.env) (inft : pinterface) =
      function declarations. *)
   let body, ois = transmodsig_body env params modty.pmsig_body in
 
+  let body1 =  List.map (function Tys_function fs -> fs) body in
+
+  let lookup_fsymbol s b =
+    match List.find_opt (fun fs -> sym_equal fs.fs_name s) b with
+    | None -> assert false
+    | Some fs -> fs in
+
+  let filter_quantum k oi env =
+    let f = lookup_fsymbol k body1 in
+    if f.fs_quantum = `Quantum then
+    {oi_calls = List.filter ( (^~) EcEnv.Fun.is_quantum env) oi.oi_calls}
+    else oi in
+
+  let ois = Msym.mapi (fun k oi -> filter_quantum k oi env) ois in
+
+  let () =
+    Format.eprintf "[debug] ois (#=%d)@." (Msym.cardinal ois);
+    Msym.iter (fun sym oi ->
+      let calls = List.map EcPath.x_tostring oi.oi_calls in
+      Format.eprintf "[debug]   %s -> {%s}@."
+        sym (String.concat ", " calls))
+      ois
+  in
+
   assert (Msym.cardinal ois = List.length body);
 
   let mis =
@@ -2002,8 +2026,7 @@ and transmodsig_body
 (* -------------------------------------------------------------------- *)
 and transmod ~attop (env : EcEnv.env) (me : pmodule_def) =
   let (_, me') = transmod_header ~attop env me.ptm_header [] me.ptm_body in
-  { me' with me_quantum = me.ptm_quantum }
-
+  me' 
 (* -------------------------------------------------------------------- *)
 and transmod_header
     ~attop (env : EcEnv.env) (mh:pmodule_header) params (me:pmodule_expr) =
@@ -2447,7 +2470,6 @@ and transstruct1 (env : EcEnv.env) (st : pstructure_item located) =
   match unloc st with
   | Pst_mod  (x,cast, me) ->
     let pe = {
-      ptm_quantum  = `Classical;
       ptm_header   = if List.is_empty cast then Pmh_ident x else Pmh_cast(Pmh_ident x, cast);
       ptm_body     = me; } in
 
@@ -3580,24 +3602,13 @@ and trans_form_or_pattern env mode ?mv ?ps ue pf tt =
     | PFqbound (gp, o, b) ->
         if mode <> `Form then
           tyerror f.pl_loc env (NotAnExpression `QB);
-        let (m,x') =
-          begin
-          match gp with
-          | PQBConcrete gp ->
-          let x' = trans_gamepath env gp in
-          (x'.x_top, Some x')
-          | PQBAdv m ->
-          let (m,_) = trans_msymbol env m in
-          (m, None)
-          end
-        in
-        let mt = NormMp.sig_of_mp env m in 
+        let x' = trans_gamepath env gp in
+        let m = x'.x_top in
+        let mt = NormMp.sig_of_mp env m in
         let x = trans_qbounds env mt o in 
         let f = transf env b in
         unify_or_fail env ue b.pl_loc ~expct:EcTypes.tint f.f_ty;
-        let qm =
-        if is_none x' then Qmod m else Qproc (oget x') in
-        f_qbound qm x f 
+        f_qbound x' x f 
 
     | PFequivF (ml, mr, pre, (gp1, gp2), post) ->
         if mode <> `Form then

@@ -119,6 +119,8 @@ module Fun : sig
 
   val equivS : memory -> memory -> xpath -> xpath -> env ->
     memenv * (funsig * function_def) * memenv * (funsig * function_def) * env
+
+  val is_quantum : xpath -> env -> bool
 end
 
 (* -------------------------------------------------------------------- *)

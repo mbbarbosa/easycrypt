@@ -601,7 +601,6 @@
 %token UNDO
 %token UNROLL
 %token VAR
-%token QVAR
 %token WEAKMEM
 %token WHILE
 %token WHY3
@@ -1202,10 +1201,8 @@ form_u(P):
     { PFlsless mp }
 
 | QBOUND mp=loc(fident) LBRACKET o=qident COLON b=form_r(P) RBRACKET
-    { PFqbound (PQBConcrete mp, o, b) }
+    { PFqbound (mp, o, b) }
 
-| QBOUND mp=loc(mod_qident) LBRACKET o=qident COLON b=form_r(P) RBRACKET
-    { PFqbound (PQBAdv mp, o, b) }
 
 form_field:
 | x=qident EQ f=form
@@ -1431,23 +1428,6 @@ loc_decl_r:
 loc_decl:
 | x=loc_decl_r SEMICOLON { x }
 
-loc_qdecl_r:
-  (* FIXME: WE ONLY CONSIDER QUANTUM LOCAL VARIABLES FOR NOW *)
-| QVAR x=loc(loc_decl_names)
-    { Pfun_qlocal { pfl_names = x; pfl_type = None; pfl_init = None; } }
-
-| QVAR x=loc(loc_decl_names) COLON ty=loc(type_exp)
-    { Pfun_qlocal { pfl_names = x; pfl_type = Some ty; pfl_init = None; } }
-
-| QVAR x=loc(loc_decl_names) COLON ty=loc(type_exp) LARROW e=expr
-    { Pfun_qlocal { pfl_names = x; pfl_type = Some ty; pfl_init = Some e; } }
-
-| QVAR x=loc(loc_decl_names) LARROW e=expr
-    { Pfun_qlocal { pfl_names = x; pfl_type = None; pfl_init = Some e; } }
-
-loc_qdecl:
-| x=loc_qdecl_r SEMICOLON { x }
-
 memtype_decl:
 | x=loc(loc_decl_names) COLON ty=loc(type_exp)
     { x,ty }
@@ -1470,7 +1450,7 @@ fun_def_body:
     }
 
 fun_def_qbody:
-| LBRACE qdecl=loc_qdecl* s=stmt rs=ret_stmt RBRACE
+| LBRACE qdecl=loc_decl* s=stmt rs=ret_stmt RBRACE
     { { pfb_locals = qdecl;
         pfb_body   = s   ;
         pfb_return = rs  ; }
@@ -1571,7 +1551,7 @@ mod_body:
 mod_def_or_decl:
 | locality=locality MODULE header=mod_header c=mod_cast? EQ ptm_body=loc(mod_body)
   { let ptm_header = match c with None -> header | Some c ->  Pmh_cast(header,c) in
-    { ptm_def      = `Concrete { ptm_quantum = `Classical; ptm_header; ptm_body; };
+    { ptm_def      = `Concrete { ptm_header; ptm_body; };
       ptm_locality = locality; } }
 
 | locality=locality MODULE ptm_name=uident LTCOLON ptm_modty=mod_type_with_restr
@@ -1579,11 +1559,6 @@ mod_def_or_decl:
         ptm_locality = locality; } }
 
 qmod_def_or_decl:
-| locality=locality QMODULE header=mod_header c=mod_cast? EQ ptm_body=loc(mod_body)
-  { let ptm_header = match c with None -> header | Some c ->  Pmh_cast(header,c) in
-    { ptm_def      = `Concrete { ptm_quantum = `Quantum; ptm_header; ptm_body; };
-      ptm_locality = locality; } }
-
 | locality=locality QMODULE ptm_name=uident LTCOLON ptm_modty=mod_type_with_restr
     { { ptm_def      = `QAbstract { ptm_name; ptm_modty;};
         ptm_locality = locality; } }

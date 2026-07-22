@@ -1111,10 +1111,6 @@ let rec dump_f f =
     | Lexists -> "EXI"
     | Llambda -> "LAM"
   in
-  let dump_qmod_or_proc = function
-    | Qmod m -> EcPath.m_tostring m
-    | Qproc p -> EcPath.x_tostring p
-  in
   match f.f_node with
   | Fquant (q, bs, f) -> dump_quant q ^ " ( " ^ String.concat ", " (List.map EcIdent.tostring_internal (List.fst bs)) ^ " )" ^ "." ^ dump_f f (* of quantif * bindings * form *)
   | Fif    (c, t, f) -> "IF " ^ dump_f c ^ " THEN " ^ dump_f t ^ " ELSE " ^ dump_f f
@@ -1129,7 +1125,7 @@ let rec dump_f f =
   | Ftuple  f -> " ( " ^ String.concat ", " (List.map dump_f f) ^ " )"
   | Fproj   (f, x) -> dump_f f ^ "." ^ string_of_int x
   | Fpr {pr_args = a; pr_event = e} -> "PR [ARG = " ^ dump_f a ^ " ; EV = " ^ dump_f e.inv ^ "]"
-  | Fqbound {qb_proc; qb_orcl; qb_bound} -> "QBOUND [ PROC = " ^ dump_qmod_or_proc qb_proc ^ " ; ORCL = "^ EcPath.x_tostring qb_orcl ^ " ; BD = " ^ dump_f qb_bound ^ "]"
+  | Fqbound {qb_proc; qb_orcl; qb_bound} -> "QBOUND [ PROC = " ^ EcPath.x_tostring qb_proc ^ " ; ORCL = "^ EcPath.x_tostring qb_orcl ^ " ; BD = " ^ dump_f qb_bound ^ "]"
   | FhoareF _ -> "HoareF"
   | FhoareS _ -> "HoareS"
   | FbdHoareF _ -> "bdHoareF"

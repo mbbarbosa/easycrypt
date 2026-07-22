@@ -612,10 +612,7 @@ let rec subst_form (s : subst) (f : form) =
      f_pr pr_mem pr_fun pr_args pr_event
   
   | Fqbound {qb_proc; qb_orcl; qb_bound} ->
-     let qb_proc = match qb_proc with
-       | Qmod m -> Qmod (subst_mpath s m)
-       | Qproc p -> Qproc (subst_xpath s p)
-     in
+     let qb_proc = subst_xpath s qb_proc in
      let qb_orcl = subst_xpath s qb_orcl in
      let qb_bound = subst_form s qb_bound in
      f_qbound qb_proc qb_orcl qb_bound

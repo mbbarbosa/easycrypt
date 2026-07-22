@@ -535,10 +535,7 @@ module Fsubst = struct
       f_pr pr_mem pr_fun pr_args {m;inv=pr_event}
 
     | Fqbound qb ->
-      let qb_proc = match qb.qb_proc with
-       | Qmod m -> Qmod (mp_subst s m)
-       | Qproc p -> Qproc (x_subst s p)
-      in
+      let qb_proc = x_subst s qb.qb_proc in
       let qb_orcl  = x_subst s qb.qb_orcl in
       let qb_bound = f_subst ~tx s qb.qb_bound in
       f_qbound qb_proc qb_orcl qb_bound

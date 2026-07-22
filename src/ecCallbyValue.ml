@@ -591,11 +591,7 @@ and cbv (st : state) (s : subst) (f : form) (args : args) : form =
   
   | Fqbound qb ->
     assert (Args.isempty args);
-    let qb_proc =
-    match qb.EcAst.qb_proc with
-    | EcAst.Qmod m -> EcAst.Qmod (norm_mp st s m)
-    | EcAst.Qproc x -> EcAst.Qproc (norm_xfun st s x)
-    in
+    let qb_proc = norm_xfun st s qb.qb_proc in
     let qb_orcl = norm_xfun st s qb.qb_orcl in
     let qb_bound = norm st s qb.qb_bound in
     f_qbound qb_proc qb_orcl qb_bound

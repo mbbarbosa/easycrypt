@@ -8,7 +8,6 @@ module QFooO : QFooOT = {
    qproc foo(a : int) : int = {
        qvar x : int;
        x <- 0;
-       assert (false);
        return (a + x);
    }
 }.

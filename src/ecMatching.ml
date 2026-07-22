@@ -774,14 +774,9 @@ let f_match_core opts hyps (ue, ev) f1 f2 =
           in
 
           (* Match procedure/oracle modules: bind metavar or check equality. *)
-          (match qb1.qb_proc, qb2.qb_proc with
-          | EcAst.Qmod mp1, EcAst.Qmod mp2 ->
-              match_mod mp1 mp2
-          | EcAst.Qproc xp1, EcAst.Qproc xp2 ->
-              if not (EcSymbols.sym_equal xp1.EcPath.x_sub xp2.EcPath.x_sub) then
+          if not (EcSymbols.sym_equal qb1.qb_proc.EcPath.x_sub qb2.qb_proc.EcPath.x_sub) then
                 failure ();
-              match_mod xp1.EcPath.x_top xp2.EcPath.x_top
-          | _, _ -> failure ());
+          match_mod qb1.qb_proc.EcPath.x_top qb2.qb_proc.EcPath.x_top;
 
           if not (EcSymbols.sym_equal qb1.qb_orcl.EcPath.x_sub qb2.qb_orcl.EcPath.x_sub) then
             failure ();

@@ -20,3 +20,9 @@
 .merlin
 *.install
 *.log
+
+# Local editor/project artifacts
+/.vscode/
+
+# Local lock marker in src workspace
+/src/lock

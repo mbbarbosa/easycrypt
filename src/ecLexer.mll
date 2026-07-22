@@ -43,7 +43,6 @@
     "in"          , IN         ;        (* KW: prog *)
     "for"         , FOR        ;        (* KW: prog *)
     "var"         , VAR        ;        (* KW: prog *)
-    "qvar"        , QVAR        ;       (* KW: prog *)
     "qproc"       , QPROC      ;        (* KW: prog *)
     "proc"        , PROC       ;        (* KW: prog *)
     "if"          , IF         ;        (* KW: prog *)
