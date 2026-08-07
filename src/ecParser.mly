@@ -1200,7 +1200,7 @@ form_u(P):
 | LOSSLESS mp=loc(fident)
     { PFlsless mp }
 
-| QBOUND mp=loc(fident) LBRACKET o=qident COLON b=form_r(P) RBRACKET
+| QBOUND mp=loc(fident) LBRACKET o=loc(fident) COLON b=form_r(P) RBRACKET
     { PFqbound (mp, o, b) }
 
 

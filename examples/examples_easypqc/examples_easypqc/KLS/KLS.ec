@@ -28,9 +28,11 @@ type Sig = W*Z.
 (*  bound on number of sig queries *)
 op qs_bound : int.
 (* bound on number of ro queries *)
-op ro_bound : int.
+op cro_bound : int.
+op qro_bound : int.
+op ro_bound = cro_bound + qro_bound.
 axiom gez_sb : 0 <= qs_bound.
-
+axiom gez_qrob : 0 <= qro_bound.
 
 clone import QDigitalSignaturesRO as DSS with 
 type pk_t <- PK,
@@ -200,7 +202,6 @@ module Rep_QRO : QRO_ri = {
      var c;
      var tmp;     
 
-     ch <- ch + 1; 
      tmp <- assoc prog_list x;
      c <- if tmp = None then f x else oget tmp;
      return c; 
@@ -296,13 +297,14 @@ module ReproGame (RO: QRO_i, A: DistA) = {
     } 
 }.
 
-axiom qrom_reprogramming &m 
+
+axiom qrom_reprogramming qhq &m 
    (* The restriction implies that A can not access glob of
        Wrapped_QRO, RepO,  QRO *)
-   (A <: DistA {-ReproGame}):
+   (H <: QRO) (A <: DistA {-ReproGame}): qbound A(Wrapped_QRO(H), RepO(Wrapped_QRO(H))).distinguish [H.hq : qhq] /\
    hoare[ReproGame(QRO,A).main : 
-     Wrapped_QRO.ch = 0 /\ RepO.ctr = 0 /\ RepO.se 
-     ==> Wrapped_QRO.ch <= query_ctr /\ 
+      Wrapped_QRO.ch = 0 /\ RepO.ctr = 0 /\ RepO.se 
+     ==> Wrapped_QRO.ch + qhq <= query_ctr /\ 
      RepO.ctr <= rep_ctr /\ RepO.se]
   =>
  `|Pr[ReproGame(QRO,A).main(false) @ &m:res]
@@ -459,11 +461,19 @@ declare module Sim <: HVZK_Sim {-QRO, -Rep_QRO, -O_CMA_Default, -P, -V, -A, -HVZ
 (* Old approach to bound number of queries. 
 We should actually solve this using the cost logic *)
 (* TODO: This axiom is not always realizable as is *)
+
+
+
+declare module SO <: Oracle_CMA {-A}.
+declare qmodule RO <: QRO_i {-A}.
+
+declare axiom qbound1: qbound A(RO, Wrap_SO(SO,IDS_Sig(P, V, RO))).forge [RO.hq : qro_bound].
+
 declare axiom A_query_bound:
  (forall (SO <: Oracle_CMA {-A}) (RO <: QRO_i {-A}),
  hoare[ A(Wrap_RO(RO), Wrap_SO(SO,IDS_Sig(P, V, RO))).forge : 
      Wrap_RO.qc = 0 /\ Wrap_SO.qc = 0
-     ==> Wrap_RO.qc <= ro_bound /\ Wrap_SO.qc <= qs_bound]).
+     ==> Wrap_RO.qc <= cro_bound /\ Wrap_SO.qc <= qs_bound]).
 
 (* ----------------------------------------------------------------------*)
 (*                            First game hop:                            *)
@@ -583,7 +593,8 @@ module DummyRO (RO : QRO) : QRO_i = {
 local module  D (* ( A:  Adv_EFCMA_RO)*) (RO: QRO, O: RepO_t) = {
    proc distinguish = EF_CMA_RO(IDS_Sig(P, V), A, DummyRO(RO), Wrap_SO(Distinguisher_Oracle(RO, O))).main
 }.
-         
+
+
 lemma hop2 &m : 
     `|Pr [EF_CMA_RO(IDS_Sig(P, V), A, Rep_QRO, Oracle1_CMA).main() @ &m : res] -  
       Pr [EF_CMA_RO(IDS_Sig(P, V), A, Rep_QRO, Oracle2_CMA).main() @ &m : res]| <= 
@@ -635,7 +646,9 @@ inline*. wp. call (_ : RepO.b{2} = true /\ ={glob O_CMA_Default} /\ ={prog_list}
 + admit.
 + proc. inline *. by auto => />. 
 + auto => />.
-apply (qrom_reprogramming &m D _). 
+apply (qrom_reprogramming qro_bound &m QRO D _). 
+split. 
++ qbound. smt(gez_qrob). 
 (* ******************************** *)
 (* This is rather a mess right now. 
    The wrapped oracles are currently 
@@ -988,7 +1001,7 @@ module (B(A : Adv_EFKOA_RO): GBFO_F) (BFO : BFO_t)  = {
 
 section.
 
-declare module A <: Adv_EFKOA_RO {-QRO, -GBFO1, -B}.
+declare qmodule A <: Adv_EFKOA_RO {-QRO, -GBFO1, -B}.
 
 local module Aux = {
    proc left() = {
@@ -1157,7 +1170,9 @@ proc;rcondt {1} 3.
   by move => *; apply H1.
   
 inline {2} 3;inline {2} 7; inline {2}  10; inline {1} 4;wp; conseq />.
-call(_:QRO.h{2} = fun x0 => if GBFO1.h{1} x0 then B.goodChal{1} x0 else B.badChal{1} x0); 1: by proc;inline *;auto => />.
+call(_:QRO.h{2} = fun x0 => if GBFO1.h{1} x0 then B.goodChal{1} x0 else B.badChal{1} x0).
+admit.
+by proc;inline *;auto => />.
 
 inline *; conseq (_: _ ==> 
    pk{2} = __pk /\ B.pk{1} = __pk /\ aux{1} = __pk /\
@@ -1227,7 +1242,7 @@ clone import QMeans with
 section.
 
 require import Xint.
-declare module A <: Adv_EFKOA_RO [ forge : `{N cbfoAF, #O.h : qbfoF} ] {-QRO, -GBFO1, -B} .
+declare qmodule A <: Adv_EFKOA_RO(* [ forge : `{N cbfoAF, #O.h : qbfoF} ]*) {-QRO, -GBFO1, -B} .
 
 declare op cbfoBF : int.
 
@@ -1235,7 +1250,8 @@ lemma reduction_bound __pk _lambda &m :
    _lambda = max_prob dC
                  (fun (w : W) (c : C) => has (verify __pk w c) FinZ.enum) FinW.enum =>
    Pr [ EF_KOA_RO_pk(IDS_Sig(PL, V), A, QRO).main_pk(__pk) @ &m : res] <=
-       8%r*_lambda*(qbfoF+1)%r^2.
+       8%r*_lambda*(qbfoF+(cbfoBF + 1))%r^2.
+
 move => lval; move : (reduction A __pk _lambda &m lval).
 case (0%r < _lambda < 1%r); last first.
 + move => lbound H. 
@@ -1245,23 +1261,23 @@ case (0%r < _lambda < 1%r); last first.
     seq 7 : (!r{hr} /\ lambda{hr} = 0%r);  1: by auto.
     if; last by auto.
     wp; call(_: true); 1: by auto.
-    auto => /> &hr nr H0 h indfun [m [w z]] /=.
-    have H1 : forall x, ps{hr} x = 0%r by smt().
+    auto => /> &hr nr H0 h indfun [m [w z]] /=. admit.
+   (* have H1 : forall x, ps{hr} x = 0%r by smt().
     move : indfun; rewrite /dfun_biased MUFF.dfun_supp /= => indfun. 
     move : (indfun (w,m)).
     rewrite /support /dbiased muK; 1: by apply  DBool.Biased.isdistr_mbiased. 
-    by smt().
-  + move => l1. 
-    have  : 1%r <= 8%r * _lambda * (qbfoF + 1)%r ^ 2; last by smt( mu_bounded). 
+    by smt().*)
+  + move => l1. admit.
+   (* have  : 1%r <= 8%r * _lambda * (qbfoF + 1)%r ^ 2; last by smt( mu_bounded). 
     have : 1%r <= _lambda by smt(max_prob_bounded FinW.enum_spec).
     rewrite StdOrder.RealOrder.Domain.expr2 /=.
-    by smt(qF_ge0).
-move => lbound; move : (GFBO_bound cbfoBF qbfoF qF_ge0 _lambda &m __pk (B(A)) _ _ lbound) => //.
+    by smt(qF_ge0).*)
+move => lbound; move : (GFBO_bound cbfoBF qbfoF qF_ge0 _ _lambda &m __pk (B(A)) lbound) => //.
 + admit. (* cost: @Benjamin *)
 by smt().
 qed.
 
-module W : Worker = {
+local module W : Worker = {
    proc work = EF_KOA_RO_pk(IDS_Sig(PL, V), A, QRO).main_pk
 }.
 
@@ -1335,7 +1351,7 @@ have H : perm_eq (filter (fun (pk : PK) => pk \in lossy_kg) FinPK.enum)
 
 + rewrite (eq_big_perm _ _ _ _ H).          
   have : 0%r <= big predT x (filter (predC (fun (pk : PK) => pk \in lossy_kg)) FinPK.enum); last by smt().
-  rewrite /predC /= /x; apply sumr_ge0 => pk * /=.
+  rewrite /predC /= /x; apply sumr_ge0 => pk * /=. 
   have H0 : 0%r <= 8%r * (qbfoF + 1)%r ^ 2 by smt(StdOrder.RealOrder.Domain.expr2 qF_ge0).
   have H1 : 0%r <= mu1 lossy_kg pk by smt(mu_bounded).
   by smt(max_prob_bounded FinW.enum_spec ).

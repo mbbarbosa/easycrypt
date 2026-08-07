@@ -1754,7 +1754,6 @@ let trans_restr_mem env (r_mem : pmod_restr_mem) =
       let (sx, sm) = mr.ur_neg in
       sx, Sm.add x sm in
     { mr with ur_neg } in
-
   let x_add_neg mr x =
     neg_started := true;
     let ur_neg =
@@ -1799,12 +1798,7 @@ let trans_restr_mem env (r_mem : pmod_restr_mem) =
 
 let trans_qbounds env tysig o =
   let env = EcEnv.Mod.bind_params tysig.mis_params env in
-  let loc = loc o in
-  let (m,f) = unloc o in
-  let ff = match m with
-      | a :: [] -> trans_oracle env (mk_loc loc a, mk_loc loc f)
-      | _ -> assert false in
-  ff
+  trans_gamepath env o
 
 
 

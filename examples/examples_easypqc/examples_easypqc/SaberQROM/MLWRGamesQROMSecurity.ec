@@ -3,7 +3,7 @@
 (* ----------------------------------- *)
 
 (* --- Built-in --- *)
-require import AllCore Distr DBool  FunSamplingLib.
+require import AllCore Distr DBool (* FunSamplingLib*) .
 require (*--*) Matrix.
 
 (* --- Local --- *)

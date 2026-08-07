@@ -431,8 +431,8 @@ proof.
   qbound.
   trivial.
   proc.
-  inline ASCD(QRO).main QRO.hc; wp.
-  call hoare_bound1; inline *; auto => /> /#.
+  inline ASCD(QRO).main QRO.hc; wp. print hoare_bound1.
+  call hoare_bound1. inline *; auto => /> /#.
 qed.
 
 local lemma l5 lam &m :

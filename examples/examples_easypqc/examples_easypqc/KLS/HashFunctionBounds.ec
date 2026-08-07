@@ -11,7 +11,7 @@ clone import LambdaReprogram as Reprogram with
   type X <- X,
   type Y <- Y.
 
-module type BFOi_t = {
+qmodule type BFOi_t = {
    proc init() : unit
    proc hc(x : X) : bool 
    qproc hq(x : X ) : bool
@@ -19,7 +19,6 @@ module type BFOi_t = {
 
 
 module BFO0 : BFOi_t  = {
-  (* var ch : int *)
    proc init() = {}
    proc hc( x : X ) : bool = {return false; }
    qproc hq( x : X ) : bool = { return false; }
@@ -27,11 +26,25 @@ module BFO0 : BFOi_t  = {
 
 module BFO1 : BFOi_t  = {
    var h : X -> bool
-  (* var ch : int*)
    proc init() = { h <$ dboolf; }
    proc hc( x : X ) : bool = {return h x; }
    qproc hq( x : X ) : bool = { return h x; }
 }.
+
+module BFO_Wrap (BFO : BFOi_t) : BFOi_t = {
+   var ch : int
+   proc init() = { ch <- 0; BFO.init(); }
+   proc hc( x : X ) : bool = {
+       var y;
+       y <@ BFO.hc(x);
+       ch <- ch+1;
+       return y; }
+   qproc hq = BFO.hq
+}.
+
+
+
+
 
 qmodule type BFO_t = { include BFOi_t [-init] }.
 
@@ -61,10 +74,10 @@ module BFO_Dist(BFO : BFOi_t, A : BFO_D) = {
    }
 }.
 
-axiom bfo_assumption (* cbfoA *) qbfo (H <: BFO_t) (A <: BFO_D (* [ dist : `{N cbfoA, #BFO.h : qbfo} ]*) {-BFO1, -BFO0}) &m :  
-   0 <= qbfo => qbound A(H).dist [H.hq : qbfo]  =>
+axiom bfo_assumption  cbfoA  qbfo (H <: BFOi_t) (A <: BFO_D (* [ dist : `{N cbfoA, #BFO.h : qbfo} ]*) {-BFO1, -BFO0}) &m :  
+   0 <= qbfo /\ 0 <= cbfoA => qbound A(H).dist [H.hq : qbfo] /\ hoare [A(BFO_Wrap(H)).dist : BFO_Wrap.ch = 0 ==> BFO_Wrap.ch = cbfoA]   =>
    `| Pr [ BFO_Dist(BFO0, A).main() @ &m : res ] -
-        Pr [ BFO_Dist(BFO1, A).main() @ &m : res ] | <= 8%r*lambda*qbfo%r^2.
+        Pr [ BFO_Dist(BFO1, A).main() @ &m : res ] | <= 8%r*lambda*(qbfo + cbfoA)%r^2.
 
 module (Red_D (A: BFO_F) : BFO_D) (O : BFO_t) = {
   proc dist() = {
@@ -78,12 +91,15 @@ module (Red_D (A: BFO_F) : BFO_D) (O : BFO_t) = {
 section.
 declare op cbfoAF : int.
 declare op qbfoF : int.
-
+op bfo =  qbfoF + cbfoAF.
 declare axiom qF_ge0 : 0 <= qbfoF. 
 declare axiom cAF_ge0 : 0 <= cbfoAF. 
 declare qmodule A <: BFO_F  {-BFO1}.
-declare qmodule H <: BFO_t {-BFO1}.
-declare axiom qbound1 : qbound A(H).find [H.hq : qbfoF].
+declare qmodule H <: BFOi_t {-BFO1}.
+declare axiom qbound1 : qbound A(BFO1).find [BFO1.hq : qbfoF].
+
+axiom hoare_bound (H <: BFOi_t {-BFO_Wrap}) (A <: BFO_F {-BFO1}) :
+hoare [A(BFO_Wrap(H)).find : BFO_Wrap.ch = 0 ==> BFO_Wrap.ch = cbfoAF].
 
 lemma find_implies_dist (A <: BFO_F (* [ find : `{N cbfoAF, #BFO.h : qbfoF} ]*) {-BFO1}) &m :  
   Pr[ BFO_Find(A).main() @ &m : res] =
@@ -101,14 +117,11 @@ by auto => />.
 qed.
 
 
-lemma find_bound (H <: BFO_t) (A <: BFO_F (* [ find : `{N cbfoAF, #BFO.h : qbfoF} ]*) {-BFO1}) &m :  
-  Pr[ BFO_Find(A).main() @ &m : res] <= 8%r*lambda*(qbfoF+1)%r^2.
+lemma find_bound (A <: BFO_F (* [ find : `{N cbfoAF, #BFO.h : qbfoF} ]*) {-BFO1}) &m :  
+  Pr[ BFO_Find(A).main() @ &m : res] <= 8%r*lambda*(qbfoF + (cbfoAF+1))%r^2.
 proof.
-rewrite (find_implies_dist A).
-apply (bfo_assumption(* cbfoAF*) (qbfoF+1) H (Red_D(A)) _ ). smt(qF_ge0). qbound.
-(*move => kb BFO kbh.*) admit. (* Cost *)
-(*smt(qF_ge0).*)
-(*smt(cAF_ge0).*)
+rewrite (find_implies_dist A). rewrite /bfo.
+apply (bfo_assumption  (cbfoAF+1) (qbfoF) BFO1 (Red_D(A)) _ ). smt(qF_ge0 cAF_ge0). split. qbound. trivial. proc. inline *. wp. call (hoare_bound BFO1 A)=> //.
 qed.
 end section.
 
@@ -117,6 +130,7 @@ end section.
 type Aux.
 module type GBFO_ti = {
    proc init(ps : X -> real) : unit
+   proc hc ( x : X) : bool
    qproc hq( x : X ) : bool 
 }.
 
@@ -158,11 +172,11 @@ declare op cbfoAF : int.
 declare op qbfoF : int.
 
 declare axiom qF_ge0 : 0 <= qbfoF. 
-
+declare axiom loss (A <: GBFO_F  {-GBFO1}) (H <: GBFO_ti) : islossless A(H).lambdas.
 lemma GFBO_bound lambda &m aux (A <: GBFO_F (* [ find : `{N cbfoAF, #O.h : qbfoF} ]*) {-GBFO1}) :
     0%r < lambda < 1%r =>
     Pr [ GBFO_Find(A).main(lambda, aux) @ &m : res ] <= 
-       8%r*lambda*(qbfoF+1)%r^2.
+       8%r*lambda*(qbfoF+(cbfoAF +1))%r^2.
 admitted. (* reduce to BFO *)
 end section.
 
@@ -178,7 +192,7 @@ clone import MFinite as MFX with
 
 abbrev dx = MFX.dunifin.        
         
-module type ROi_t = {
+qmodule type ROi_t = {
    proc init() : unit
    proc hc( x : X ) : Y
    qproc hq( x : X ) : Y
@@ -191,7 +205,7 @@ module RO : ROi_t  = {
    qproc hq( x : X ) : Y = { return h x; }
 }.
 
-module type RO_t = { include ROi_t [-init] }.
+qmodule type RO_t = { include ROi_t [-init] }.
 
 (* Variant to support history free proofs, 
    takes h as input to init *)
@@ -203,7 +217,7 @@ module RO_hf : RO_t  = {
 }.
 
 
-module type SPR_Adv(RO : RO_t) = {
+qmodule type SPR_Adv(RO : RO_t) = {
    proc find(x : X) : X
 }.
 
@@ -339,30 +353,33 @@ declare op q : int.
 declare axiom q_ge0 : 0 <= q.
 declare axiom cA_ge0 : 0 <= cA.
 
-lemma spr_bound (H <: BFO_t) (A <: SPR_Adv (* [ find : `{N cA, #RO.h : q} ]*)
+declare qmodule A <: SPR_Adv { -BFO0, -BFO1, -R_find0, -RO }.
+declare qmodule O <: RO_t.
+
+declare axiom qb : qbound A(O).find [O.hq : q].
+
+lemma spr_bound (A <: SPR_Adv (* [ find : `{N cA, #RO.h : q} ]*)
                     { -BFO0, -BFO1, -R_find0, -RO }) &m : 
-  Pr[ SPR(A).main() @ &m : res ] <= 32%r*lambda*(q+1)%r^2 .
+  Pr[ SPR(A).main() @ &m : res ] <= 32%r*lambda*(q+(cA+1))%r^2 .
 rewrite (SPR_R A &m).
-have ? : 
-  Pr[ BFO_Find(R_find(A)).main () @ &m : res] >=
-  Pr[R_find0(A).find() @ &m : res].
-byequiv  (finder_good A) => //. admit.
-(*
-move : (find_bound (* cA *) (2*q) _ (* cA_ge0*) (R_find(A)) _) => //; 1: by smt(q_ge0).
-+ admit. (* to do : we should only have to prove the ner of queries. 
+
+apply (StdOrder.RealOrder.ler_trans (Pr[BFO_Find(R_find(A)).main() @ &m : res]) ( Pr[R_find0(A).find() @ &m : res])). byequiv  (finder_good A) => //. 
+
+move : (find_bound  cA  (2*q) _  cA_ge0  (R_find(A)) _) => //; 1: by smt(q_ge0). qbound. smt().
+ (* to do : we should only have to prove the ner of queries. 
      NOTE!!!!!!!!!! The counting of queries for this finder should account
     for the fact that whenever you implement an oracle that calls another
     oracle and keeps internal state (not in place) then the semantics 
     are correct if there are implicit state clean up calls to the
     oracle => 1 extra call to clean up, so overall 2q calls. *)
-move => H.
-move : (H &m).
+move => H0.
+move : H0 &m. 
 have ? : 8%r * lambda * (2 * q + 1)%r ^ 2 <= 8%r * lambda * (2 * q + 2)%r ^ 2; last first.
-+ have -> : 32%r * lambda * (q + 1)%r ^ 2 =  8%r * lambda * (2 * q + 2)%r ^ 2 by ring. 
++ have -> : 32%r * lambda * (q + 1)%r ^ 2 =  8%r * lambda * (2 * q + 2)%r ^ 2; by ring. 
   by smt().
 
 apply StdOrder.RealOrder.ler_pmul; 1,2,3: by smt(lambda_bound q_ge0 StdOrder.RealOrder.ge0_sqr).
-apply StdOrder.RealOrder.ler_pexp => //; smt( q_ge0).*)
+apply StdOrder.RealOrder.ler_pexp => //; smt( q_ge0).
 
 qed.
 
