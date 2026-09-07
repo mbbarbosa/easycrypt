@@ -9,9 +9,9 @@ require import Ring StdOrder IntDiv ZModP Ideal Poly.
 (* ==================================================================== *)
 abstract theory PolyReduce.
 clone import PolyComRing as BasePoly
-  remove abbrev ( + ) 
+ (* remove abbrev ( + ) 
   remove abbrev ( * ) 
-  remove abbrev [ - ].
+  remove abbrev [ - ]*) .
 (*-*) import Coeff PolyComRing BigPoly BigCf.
 
 (* -------------------------------------------------------------------- *)
@@ -241,8 +241,8 @@ qed.
 (* -------------------------------------------------------------------- *)
 lemma reducedP p : (reduced p) <=> (deg p <= n).
 proof.
-split; first by move=> @/reduced <-; apply/deg_reduce.
-move=> led; rewrite /reduced {2}polyE /reduce.
+split; first by move=> @/reduced <- ; apply/deg_reduce. print polyE. print reduce.
+move=> led. rewrite /reduced {2}(polyE p) /reduce.
 rewrite !big_seq &(eq_bigr) => /= i /mem_range rg_i.
 by rewrite pmod_small 1:/# pdiv_small 1:/# expr0 mul1r.
 qed.

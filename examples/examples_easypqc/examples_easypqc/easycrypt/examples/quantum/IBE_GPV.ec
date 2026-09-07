@@ -5,27 +5,21 @@ require (*  *) T_QROM T_PERM T_CPA T_IBE.
 
 (* Maximal number of queries to the extract/hash oracle *)
 op cqe : { int | 0 <= cqe } as ge0_cqe.
-op cqh : { int | 0 <= cqh } as ge0_cqh.
 op cqhq : { int | 0 <= cqhq } as ge0_cqhq.
 
 op gqe : { int | 0 <= gqe } as ge0_gqe.
-op gqh : { int | 0 <= gqh } as ge0_gqh.
 op gqhq : { int | 0 <= gqhq } as ge0_gqhq.
 
 op qe = cqe + gqe.
-op qh = cqh + gqh.
 op qhq = cqhq + gqhq.
 
 lemma ge0_qe : 0 <= qe.
 proof. smt(ge0_cqe ge0_gqe). qed.
 
-lemma ge0_qh : 0 <= qh.
-proof. smt(ge0_cqh ge0_gqh). qed.
-
 lemma ge0_qhq : 0 <= qhq.
 proof. smt(ge0_cqhq ge0_gqhq). qed.
 
-op q = qe + qh + 1.
+op q = qe + 1.
 
 op q_total = q + qhq. 
 (* --------------------------------------------------------------------------- *)
@@ -93,24 +87,13 @@ module type IBEScheme_QROM (H:QRO) = {
   proc dec(sk:skey, c:cipher) : msg option
 }.
 
-qmodule type AdvIDCPA_QROM (H:QRO) (O:OrclIBE) = {
+qmodule type AdvIDCPA_QROM (H:QROq) (O:OrclIBE) = {
   proc choose (mpk:mpkey) : identity * msg * msg
   proc guess (c:cipher) : bool
 }.
 
 module Wrap (A:AdvIDCPA_QROM) (H:QRO) (O:OrclIBE) = {
-  var ch : int
   var ce : int
-
-  module Hc = {
-    proc hc (x:identity) = {
-      var h;
-      ch <- ch+1;
-      h <@ H.hc(x);
-      return h;
-    }
-    qproc hq = H.hq
-  } 
 
   module Oc = {
     proc extract (id:identity) = {
@@ -123,12 +106,12 @@ module Wrap (A:AdvIDCPA_QROM) (H:QRO) (O:OrclIBE) = {
 
   proc choose(mpk:mpkey) = {
     var ms;
-    ch <- 0; ce <- 0;
-    ms <@ A(Hc, Oc).choose(mpk); 
+    ce <- 0;
+    ms <@ A(H, Oc).choose(mpk); 
     return ms;
   } 
 
-  proc guess = A(Hc,Oc).guess
+  proc guess = A(H,Oc).guess
 
 }.
 
@@ -220,30 +203,26 @@ declare module E <: EncScheme0 {-IDCPA, -QRO, -B, -Wrap, -SCD}.
 declare qmodule A <: 
   AdvIDCPA_QROM { -IDCPA, -QRO, -E, -B, -Wrap, -SCD}.
 
-declare qmodule H <: QRO{-A}.
-
-declare module O <: OrclIBE{-A}.
-
-declare axiom qboundc : qbound A(H,O).choose [H.hq : cqhq].
-declare axiom qboundg : qbound A(H,O).guess [H.hq : gqhq].
+declare axiom qboundc (H <: QRO{-A}) (O <: OrclIBE{-A}) : qbound A(H,O).choose [H.hq : cqhq].
+declare axiom qboundg (H <: QRO{-A}) (O <: OrclIBE{-A}) : qbound A(H,O).guess [H.hq : gqhq].
 
 
 declare axiom A_wf : hoare [ IDCPA_QROM(A,GPV(E)).main : true ==> !IDCPA.id \in IDCPA.log /\
                                                           uniq IDCPA.log /\
                                                           size IDCPA.log = qe].
 
-declare axiom choose_ll (H <: QRO{-A}) (O <: OrclIBE{-A}) :
-   islossless O.extract => islossless H.hq =>  islossless H.hc =>islossless A(H, O).choose.
+declare axiom choose_ll (H <: QROq{-A}) (O <: OrclIBE{-A}) :
+   islossless O.extract => islossless H.hq => islossless A(H, O).choose.
 
-declare axiom guess_ll (H <: QRO{-A}) (O <: OrclIBE{-A}) :
-  islossless O.extract => islossless H.hq => islossless H.hc => islossless A(H, O).guess.
+declare axiom guess_ll (H <: QROq{-A}) (O <: OrclIBE{-A}) :
+  islossless O.extract => islossless H.hq => islossless A(H, O).guess.
 
 declare axiom hoare_bound_c (H<:QRO{-A,-Wrap}) (O<:OrclIBE{-A,-Wrap}) : 
-  hoare [Wrap(A, H, O).choose : true  ==> Wrap.ce <= cqe /\ Wrap.ch <= cqh].
+  hoare [Wrap(A, H, O).choose : true  ==> Wrap.ce <= cqe].
 
-declare axiom hoare_bound_g (H<:QRO{-A,-Wrap}) (O<:OrclIBE{-A,-Wrap}) ke kh: 
-  hoare [Wrap(A, H, O).guess : Wrap.ce = ke /\ Wrap.ch = kh  ==> 
-                               Wrap.ce <= ke + gqe /\ Wrap.ch <= kh + gqh].
+declare axiom hoare_bound_g (H<:QRO{-A,-Wrap}) (O<:OrclIBE{-A,-Wrap}) ke: 
+  hoare [Wrap(A, H, O).guess : Wrap.ce = ke  ==> 
+                               Wrap.ce <= ke + gqe].
 
 declare axiom enc_ll : islossless E.enc.
 
@@ -297,10 +276,10 @@ proof.
     + by conseq (: false) => /> //.
     + phoare split ! 1.0 r.
       + islossless. 
-        + by apply (guess_ll (<:Wrap(A, QRO, IDCPA(Wrap(A, QRO), GPV(E, QRO)).E).Hc)
+        + by apply (guess_ll QRO
                              (<:Wrap(A, QRO, IDCPA(Wrap(A, QRO), GPV(E, QRO)).E).Oc)); islossless.
         + by apply enc_ll.              
-        by apply (choose_ll (<:Wrap(A, QRO, IDCPA(Wrap(A, QRO), GPV(E, QRO)).E).Hc)
+        by apply (choose_ll QRO
                              (<:Wrap(A, QRO, IDCPA(Wrap(A, QRO), GPV(E, QRO)).E).Oc)); islossless.
       call (: (glob A, glob E) = (glob A, glob E){m} /\ lam_ = lam ==> 
                G.bf IDCPA.id /\ forall (id' : identity), id' \in IDCPA.log => ! G.bf id'); 2: by auto.
@@ -382,10 +361,10 @@ seq 1 : true 1.0 (lam*(1.0-lam)^qe)
        (!IDCPA.id \in IDCPA.log /\ uniq IDCPA.log /\ size IDCPA.log = qe /\ lam_ = lam).
 + by call A_wf; auto.
 + islossless.
-  + by apply (guess_ll (<:Wrap(A, QRO, IDCPA(Wrap(A, QRO), GPV(E, QRO)).E).Hc)
+  + by apply (guess_ll QRO
                        (<: Wrap(A, QRO, IDCPA(Wrap(A, QRO), GPV(E, QRO)).E).Oc)); islossless.
   + by apply enc_ll.
-  by apply (choose_ll (<:Wrap(A, QRO, IDCPA(Wrap(A, QRO), GPV(E, QRO)).E).Hc)
+  by apply (choose_ll QRO
                       (<: Wrap(A, QRO, IDCPA(Wrap(A, QRO), GPV(E, QRO)).E).Oc)); islossless.
 + rnd (fun t => t IDCPA.id /\ forall id', id' \in IDCPA.log => ! t id').
   by skip => /> &1 hid hu <-; apply pr_dbfun_l_eq.
@@ -431,47 +410,45 @@ local hoare hoare_choose :
     IDCPA.log = [] /\
     QRO.ch = 0 ==>
     size IDCPA.log = Wrap.ce /\
-    Wrap.ce <= cqe /\ Wrap.ch <= cqh /\
-    QRO.ch = Wrap.ce + Wrap.ch.
+    Wrap.ce <= cqe /\
+    QRO.ch = Wrap.ce.
 proof.
   conseq (:IDCPA.log = [] /\ QRO.ch = 0 ==>
-           size IDCPA.log = Wrap.ce /\ QRO.ch = Wrap.ce + Wrap.ch)
+           size IDCPA.log = Wrap.ce /\ QRO.ch = Wrap.ce)
          (hoare_bound_c 
             (<:QRO)
             (<:IDCPA(Wrap(A, QRO), GPV(E, QRO)).E)). smt(). 
-  proc; call (:size IDCPA.log = Wrap.ce /\ QRO.ch = Wrap.ce + Wrap.ch).
+  proc; call (:size IDCPA.log = Wrap.ce /\ QRO.ch = Wrap.ce).
   + by proc; inline *; auto => /> /#.
   + by proc; conseq />.
-  + by proc; inline *; auto => /> /#.
   by auto.
 qed.
 
-local hoare hoare_guess ke kh kch : 
+local hoare hoare_guess ke kch : 
    Wrap(A, QRO, IDCPA(Wrap(A, QRO), GPV(E, QRO)).E).guess :
     size IDCPA.log = Wrap.ce /\
-    Wrap.ce = ke /\ Wrap.ch = kh /\
+    Wrap.ce = ke /\
     QRO.ch = kch ==>
     size IDCPA.log = Wrap.ce /\
-    Wrap.ce <= ke + gqe /\ Wrap.ch <= kh + gqh /\
-    QRO.ch = kch + (Wrap.ce - ke) + (Wrap.ch - kh).
+    Wrap.ce <= ke + gqe /\
+    QRO.ch = kch + (Wrap.ce - ke).
 proof.
-  conseq (:size IDCPA.log = Wrap.ce /\ Wrap.ce = ke /\ Wrap.ch = kh /\ QRO.ch = kch ==>
-           size IDCPA.log = Wrap.ce /\ QRO.ch = kch + (Wrap.ce - ke) + (Wrap.ch - kh))
+  conseq (:size IDCPA.log = Wrap.ce /\ Wrap.ce = ke /\ QRO.ch = kch ==>
+           size IDCPA.log = Wrap.ce /\ QRO.ch = kch + (Wrap.ce - ke))
          (hoare_bound_g 
             (<:QRO)
-            (<:IDCPA(Wrap(A, QRO), GPV(E, QRO)).E) ke kh). smt(). done.
-  proc (size IDCPA.log = Wrap.ce /\ QRO.ch = kch + (Wrap.ce - ke) + (Wrap.ch - kh)).
+            (<:IDCPA(Wrap(A, QRO), GPV(E, QRO)).E) ke). smt(). done.
+  proc (size IDCPA.log = Wrap.ce /\ QRO.ch = kch + (Wrap.ce - ke)).
   + smt(). + smt().
   + by proc; inline *; auto => /> /#.
   + by proc; conseq />.
-  by proc; inline *; auto => /> /#.
 qed.
 
 local hoare hoare_bound : 
    IDCPA(Wrap(A, QRO), GPV(E, QRO)).main : QRO.ch = 0 ==> size IDCPA.log <= qe /\ QRO.ch <= q.
 proof.
   proc.
-  ecall (hoare_guess Wrap.ce Wrap.ch QRO.ch).
+  ecall (hoare_guess Wrap.ce QRO.ch).
   inline GPV(E, QRO).enc; wp.
   call(:true).
   inline QRO.hc; wp.
@@ -577,7 +554,7 @@ qmodule type AdvIDCPA_QROM_aux (H : QRO, O : OrclIBE, P:OrclPK)  = {
 local lemma l3 &m lam : 
    Pr[G(Init2).main(lam) @ &m : res] = Pr[CPA(B(A), ES(E)).main(lam) @ &m : res].
 proof.
-byequiv => //; proc.
+byequiv => //; proc. inline G(Init2).main0.
 inline *.
 seq 12 10 : 
   ((forall id', B.bf id' => pk = (mpk0, QRO.h id')){2} /\
@@ -636,7 +613,7 @@ seq 15 6 : ( (!G.bf IDCPA.id \/ exists m', m' \in IDCPA.log /\ G.bf m'){1} =
   rcondt{2} 1 => *; 1: by auto => /> /#.
   by rnd (fun b1 => !(b{2} ^^ b1)); skip => /> /#.
 
-seq 5 2: 
+seq 4 2: 
   ( (forall (id' : identity), B.bf{2} id' => pk{2} = (mpk0{2}, QRO.h{2} id')) /\
     (forall (id' : identity), ! G.bf{1} id' => QRO.h{1} id' = f IDCPA.mpk{1} (B.he{2} id')) /\
      ={QRO.h} /\  G.bf{1} = B.bf{2} /\ IDCPA.mpk{1} = mpk0{2} /\ (IDCPA.mpk{1}, IDCPA.msk{1}) \in kg /\
@@ -658,9 +635,6 @@ seq 5 2:
   + by proc; inline*; auto. 
   + by move=> *;proc; inline*; auto => />.
   + by move=> *;proc; inline*; auto => />.
-  + by proc; inline*; auto. 
-  + by move=> *;proc; inline*; auto => />.
-  + by move=> *;proc; inline*; auto => />.
   by wp;skip => /> * /#. 
 wp; case: ((!G.bf IDCPA.id \/ exists (m' : identity), (m' \in IDCPA.log) /\ G.bf m'){1}).
 + call{1} (: (!G.bf IDCPA.id \/ exists (m' : identity), (m' \in IDCPA.log) /\ G.bf m') ==> 
@@ -669,15 +643,13 @@ wp; case: ((!G.bf IDCPA.id \/ exists (m' : identity), (m' \in IDCPA.log) /\ G.bf
   + proc (!G.bf IDCPA.id \/ exists (m' : identity), (m' \in IDCPA.log) /\ G.bf m') => //. 
     + by proc; inline *; auto; smt().
     by move=> *;proc; inline*;auto => />.
-    by move=> *;proc; inline*;auto => />.
-  by apply (guess_ll (<:Wrap(A, QRO, IDCPA(Wrap(A, QRO), GPV(E, QRO)).E).Hc)
+  by apply (guess_ll QRO
                   (<:Wrap(A, QRO, IDCPA(Wrap(A, QRO), GPV(E, QRO)).E).Oc)); islossless.
 + call{2} (: (!B.bf IDCPA.id \/ exists (m' : identity), (m' \in IDCPA.log) /\ B.bf m') ==> 
              (!B.bf IDCPA.id \/ exists (m' : identity), (m' \in IDCPA.log) /\ B.bf m')).
   + conseq (:true ==> true) (: _ ==> _) => //.
     + proc (!B.bf IDCPA.id \/ exists (m' : identity), (m' \in IDCPA.log) /\ B.bf m') => //. 
       + by proc; inline *; auto; smt().
-      by move=> *;proc; inline*;auto => />.
       by move=> *;proc; inline*;auto => />.
     by apply (guess_ll QRO (<:B(A).E0)); islossless.
   wp;call{1} enc_ll; call{2} enc_ll.
@@ -693,9 +665,6 @@ call (: (exists m', m' \in IDCPA.log /\ B.bf m'),
 + by proc; inline *; wp; skip => />; smt(finv_f).
 + by move=> &2 ?; proc; inline *; auto; smt().
 + by move=> &1; proc; inline *; auto; smt().
-+ by proc; inline*; auto => />.
-+ by move=> *;proc; inline *; auto => />.
-+ by move=> *;proc; inline *; auto => />.
 + by proc; inline*; auto => />.
 + by move=> *;proc; inline *; auto => />.
 + by move=> *;proc; inline *; auto => />.
@@ -722,15 +691,15 @@ proof.
   move=> eps; case: (eps = 0%r).
   + by move: eps => />; rewrite expr2 /= /#.
   move=> heps lam.  search exp (0%r <= _).
-  have h1 : 0%r < ((2%r * q%r + qe%r + 1%r)^4 + 4%r*qe%r) by smt(ge0_qe ge0_qh ge0_qhq expr_gt0). 
+  have h1 : 0%r < ((2%r * q%r + qe%r + 1%r)^4 + 4%r*qe%r) by smt(ge0_qe ge0_qhq expr_gt0). 
   have := l4 &m lam _.
-  + by rewrite ler_pdivr_mulr => //; smt(mu_bounded ge0_qe ge0_qh ge0_qhq exprn_ege1).
+  + by rewrite ler_pdivr_mulr => //; smt(mu_bounded ge0_qe ge0_qhq exprn_ege1).
   apply/ler_trans/lerr_eq; rewrite -/eps /lam;field => //. 
-  move : ge0_qh ge0_qe ge0_qhq => *; have  ge0_q : 0< q by smt().
+  move : ge0_qe ge0_qhq => *; have  ge0_q : 0< q by smt().
   have  H: forall n qq, 0 < n => 0 <= qq => qq%r^n = qq%r^(n-1)*qq%r by smt(exprS). 
   do !(rewrite H 1,2:/# /= ?expr0 /=). 
   rewrite -!addrA; pose xx := 8%r * qe%r + _.
-  have ?: 0%r <= xx;  by smt().
+  have ?: 0%r <= xx. rewrite /xx /q_total /q.  by smt(ge0_qhq ge0_qe).
 qed.
 
 end section.

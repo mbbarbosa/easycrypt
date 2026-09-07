@@ -3,7 +3,7 @@
 (* ----------------------------------- *)
 
 (* --- Built-in --- *)
-require import AllCore Distr DBool (* FunSamplingLib*) .
+require import AllCore Distr DBool FunSamplingLib.
 require (*--*) Matrix.
 
 (* --- Local --- *)
@@ -31,7 +31,8 @@ clone import T_QROM as PR with
 module QRO_hf : QRO  = {
    var h : seed -> Rq_mat
    proc init(h_in: seed -> Rq_mat) = { h <- h_in; }
-   quantum proc h{ x : seed } : Rq_mat = { return h x; }
+   proc hc( x : seed ) : Rq_mat = { return h x; }
+   qproc hq( x : seed ) : Rq_mat = { return h x; }
 }.
 
 
@@ -39,20 +40,20 @@ module QRO_hf : QRO  = {
 (* ----------------------------------- *)
 (*  Adversary Classes                  *)
 (* ----------------------------------- *)
-quantum module type Adv_MLWR = {
+qmodule type Adv_MLWR = {
   proc guess(_A : Rq_mat, b : Rp_vec) : bool
 }.
 
-quantum module type Adv_MLWR1 = {
+qmodule type Adv_MLWR1 = {
   proc guess(_A : Rq_mat, a : Rq_vec, b : Rp_vec, d : Rp) : bool
 }.
 
-quantum module type Adv_GMLWR_QRO(Gen : QRO) = {
-   proc guess(sd : seed, b : Rp_vec) : bool { Gen.h }
+qmodule type Adv_GMLWR_QRO(Gen : QRO) = {
+   proc guess(sd : seed, b : Rp_vec) : bool { Gen.hc , Gen.hq }
 }.
 
-quantum module type Adv_XMLWR_QRO(Gen : QRO) = {
-   proc guess(sd : seed, b : Rp_vec, a : Rq_vec, d : Rp) : bool { Gen.h }
+qmodule type Adv_XMLWR_QRO(Gen : QRO) = {
+   proc guess(sd : seed, b : Rp_vec, a : Rq_vec, d : Rp) : bool {  Gen.hc , Gen.hq}
 }.
 
 (* ----------------------------------- *)
@@ -125,7 +126,7 @@ module GMLWR_QRO(A : Adv_GMLWR_QRO) = {
       QRO.init();
 
       sd <$ dseed;
-      _A <@ QRO.h{ sd };
+      _A <@ QRO.hc( sd );
       s <$ dsmallRq_vec;
       
       if (u) {
@@ -157,7 +158,7 @@ module XMLWR_QRO(A : Adv_XMLWR_QRO) = {
       QRO.init();
 
       sd <$ dseed;
-      _A <@ QRO.h { sd };
+      _A <@ QRO.hc ( sd );
       s <$ dsmallRq_vec;
       
       if (u) {
@@ -206,7 +207,7 @@ module GMLWR_left(A : Adv_GMLWR_QRO) = {
       QRO_hf.init(PointRS.h);
 
       sd <$ dseed;
-      _A <@ QRO_hf.h{ sd };
+      _A <@ QRO_hf.hc( sd );
       s <$ dsmallRq_vec;
       
       if (u) {
@@ -236,7 +237,7 @@ module GMLWR_right(A : Adv_GMLWR_QRO) = {
       PointRS.right(sd);
       QRO_hf.init(PointRS.h);
 
-      _A <@ QRO_hf.h{ sd };
+      _A <@ QRO_hf.hc( sd );
       s <$ dsmallRq_vec;
       
       if (u) {
@@ -268,7 +269,7 @@ module XMLWR_left(A : Adv_XMLWR_QRO) = {
       QRO_hf.init(PointRS.h);
       
       sd <$ dseed;
-      _A <@ QRO_hf.h { sd };
+      _A <@ QRO_hf.hc ( sd );
       s <$ dsmallRq_vec;
       
       if (u) {
@@ -308,7 +309,7 @@ module XMLWR_right(A : Adv_XMLWR_QRO) = {
       PointRS.right(sd);
       QRO_hf.init(PointRS.h);
       
-      _A <@ QRO_hf.h { sd };
+      _A <@ QRO_hf.hc ( sd );
       s <$ dsmallRq_vec;
       
       if (u) {
@@ -399,7 +400,7 @@ swap {1} 3 -2.
 seq 1 1 : (#pre /\ ={sd}). by rnd. 
 seq 1 1 : (#pre /\ ={PointRS.h}). 
 + call main_theorem. by skip.
-call ( : ={QRO_hf.h}). by sim.
+call ( : ={QRO_hf.h}). by sim. by sim.
 seq 3 3 : (#pre /\ ={ QRO_hf.h, _A, s}).
 + by inline*; auto.
 by if; auto. 
@@ -415,6 +416,7 @@ case (u{1}).
   rcondt {1} 11; 2: rcondt {2} 3; first 2 by auto.
   wp. call ( : ={QRO_hf.h}) => /=.
   + proc. by skip. 
+  + proc. by skip. 
   + wp. swap{1} [10..11] -8. swap {2} 6 -5. swap{2} 2 2. wp. rnd. wp.
 rnd. wp. by auto => />. 
 
@@ -422,7 +424,7 @@ rnd. wp. by auto => />.
   rcondf {1} 11; 2: rcondf {2} 3; first 2 by auto.
   swap {1} 10 -8; swap {2} 6 -5; swap {2} 3 -1.
   wp; call (_ : ={QRO_hf.h}).
-  by sim. 
+  by sim. by sim.
 by auto. 
 qed.
 
@@ -469,7 +471,7 @@ swap {1} 3 -2.
 seq 1 1 : (#pre /\ ={sd}). by rnd. 
 seq 1 1 : (#pre /\ ={PointRS.h}). 
 + call main_theorem. by skip.
-call ( : ={QRO_hf.h}). by sim.
+call ( : ={QRO_hf.h}). by sim. by sim.
 seq 3 3 : (#pre /\ ={ QRO_hf.h, _A, s}).
 + by inline*; auto.
 if; first by auto. 
@@ -490,6 +492,7 @@ case (u{1}).
   rcondt {1} 13; first by auto.
   wp; call ( : ={QRO_hf.h}) => /=.
   + proc. by skip. 
+  + proc. by skip.
   + wp; swap{1} [10..13] -9; swap {2} 1 4; swap{2} 2-1; swap {1} 2 1; swap{2} 10 -5; wp; rnd. 
   wp; rnd (fun (m : Rq_mat) => trmx m); wp; auto => />. 
  move => * />.  (*&1 &2 pre aL bL aR bR dL dR dR_H1 dleft dleft_H1 sdl sdl_H.*) 
@@ -497,7 +500,7 @@ case (u{1}).
   
 conseq (_ :  ={glob A} /\ !u{1} /\ !u{2} ==> _) => //. 
 rcondf {1} 11; 2: rcondf {2} 4; 3: rcondf {1} 13; first 3 by auto.
-wp; call (_ : ={QRO_hf.h}); first by sim.
+wp; call (_ : ={QRO_hf.h}); 1,2: by sim.
 wp; swap{2} 10 -9; swap {1} 12 -10; swap {1} 11 -9; swap {2} 4 -2; swap {2} 4 -1.
 wp; rnd; wp; rnd (fun (m : Rq_mat) => trmx m).
 wp; auto => />. 

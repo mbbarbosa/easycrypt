@@ -46,7 +46,7 @@ module BFO_Wrap (BFO : BFOi_t) : BFOi_t = {
 
 
 
-qmodule type BFO_t = { include BFOi_t [-init] }.
+qmodule type BFO_t = { include BFOi_t [hq] }.
 
 qmodule type BFO_D(BFO : BFO_t) = {
    proc dist() : bool

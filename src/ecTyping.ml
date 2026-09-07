@@ -1890,7 +1890,12 @@ and transmodsig (env : EcEnv.env) (inft : pinterface) =
     let f = lookup_fsymbol k body1 in
     if f.fs_quantum = `Quantum then
     {oi_calls = List.filter ( (^~) EcEnv.Fun.is_quantum env) oi.oi_calls}
-    else oi in
+    else 
+    if quantum = `Classical then
+    {oi_calls = List.filter ( (^~) EcEnv.Fun.is_classical env) oi.oi_calls}
+    else
+    oi
+    in
 
   let ois = Msym.mapi (fun k oi -> filter_quantum k oi env) ois in
 

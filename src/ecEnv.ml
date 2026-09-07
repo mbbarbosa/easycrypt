@@ -1753,6 +1753,9 @@ module Fun = struct
     let f = by_xpath x env in
     f.f_quantum = `Quantum 
 
+  let is_classical x env =
+    let f = by_xpath x env in
+    f.f_quantum = `Classical 
 end
 
 

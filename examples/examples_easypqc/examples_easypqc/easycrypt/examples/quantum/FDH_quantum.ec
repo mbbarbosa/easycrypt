@@ -30,23 +30,12 @@ module type Sign_QROM (H:QRO) = {
   proc verify(pk : pkey, m : msg, s : sign) : bool 
 }.
 
-qmodule type AdvEUF_QROM (H:QRO) (S:OrclSign) = {
+qmodule type AdvEUF_QROM (H:QROq) (S:OrclSign) = {
   proc main(pk:pkey) : msg * sign
 }.
 
 module Wrap (A:AdvEUF_QROM) (H:QRO) (S:OrclSign) = {
-  var ch : int
   var cs : int
-
-  module Hc = {
-    qproc hq = H.hq
-    proc hc (x:msg) = {
-      var h;
-      ch <- ch+1;
-      h <@ H.hc(x);
-      return h;
-    }
-  } 
 
   module Sc = {
     proc sign (m:msg) = {
@@ -60,8 +49,8 @@ module Wrap (A:AdvEUF_QROM) (H:QRO) (S:OrclSign) = {
 
   proc main(pk:pkey) = {
     var ms : msg * sign;
-    ch <- 0; cs <- 0;
-    ms <@ A(Hc, Sc).main(pk); 
+    cs <- 0;
+    ms <@ A(H, Sc).main(pk); 
     return ms;
   } 
 }.
@@ -103,9 +92,8 @@ module (FDH:Sign_QROM) (H:QRO) = {
 (* Maximal number of queries to the sign/hash oracle *)
 op qs : { int | 0 < qs } as gt0_qs.
 op qhq : { int | 0 <= qhq } as ge0_qhq.
-op qhc : { int | 0 <= qhc } as ge0_qhc.
 
-op q = qhq + (qhc + qs + 1).
+op q = qhq + (qs + 1).
 
 (* --------------------------------------------------------------------------- *)
 (* Generic start of the proof used for OW and ClawFree *)
@@ -115,21 +103,20 @@ section.
 declare qmodule A <: AdvEUF_QROM { -QRO, -EUF, -Wrap}.
 
 declare axiom hoare_bound (H<:QRO{-A,-Wrap}) (S<:OrclSign{-A,-Wrap}) : 
-  hoare [Wrap(A, H, S).main : true  ==> Wrap.cs <= qs /\ Wrap.ch <= qhc].
+  hoare [Wrap(A, H, S).main : true  ==> Wrap.cs <= qs].
 
 hoare hoare_bound1 : Wrap(A, QRO, EUF(Wrap(A, QRO), FDH(QRO)).Os).main : 
      QRO.ch = 0 /\ size EUF.log = 0 ==>
-     QRO.ch <= qs + qhc /\ size EUF.log <= qs.
+     QRO.ch <= qs  /\ size EUF.log <= qs.
 proof.
-  conseq (: true ==> Wrap.cs <= qs /\ Wrap.ch <= qhc) 
-         (: QRO.ch = 0 /\ size EUF.log = 0 ==> QRO.ch = Wrap.cs + Wrap.ch /\
+  conseq (: true ==> Wrap.cs <= qs) 
+         (: QRO.ch = 0 /\ size EUF.log = 0 ==> QRO.ch = Wrap.cs /\
                                                         size EUF.log = Wrap.cs).
   + smt().
   + proc.
-    call (: QRO.ch = Wrap.cs + Wrap.ch /\ size EUF.log = Wrap.cs).
-    + by proc; inline *; auto => /> *; split; ring.
-    proc. conseq /> . trivial.
+    call (: QRO.ch = Wrap.cs /\ size EUF.log = Wrap.cs).
     + by proc; inline *; auto => /> *; ring.
+    proc. trivial.
     by auto.
   by apply (hoare_bound QRO (<:EUF(Wrap(A, QRO), FDH(QRO)).Os)).
 qed.
@@ -162,7 +149,7 @@ section.
 declare qmodule A <: AdvEUF_QROM { -QRO, -EUF, - EUF_QROM'}.
 
 declare axiom hoare_bound (H<:QRO{-A, -Wrap}) (S<:OrclSign{-A, -Wrap}) :
-  hoare[ Wrap(A, H, S).main : true ==> Wrap.cs <= qs /\ Wrap.ch <= qhc].
+  hoare[ Wrap(A, H, S).main : true ==> Wrap.cs <= qs].
 
 lemma l1 lam &m:
   0%r <= lam <= 1%r =>
@@ -251,10 +238,10 @@ section.
 declare qmodule A <: AdvEUF_QROM { -EUF, -QRO, -B, -Wrap}.
 
 declare axiom hoare_bound (H<:QRO{-A, -Wrap}) (S<:OrclSign{-A, -Wrap}) :
-  hoare[ Wrap(A, H, S).main : true ==> Wrap.cs <= qs /\ Wrap.ch <= qhc].
+  hoare[ Wrap(A, H, S).main : true ==> Wrap.cs <= qs].
 
-declare axiom A_ll (H <: QRO{-A}) (S <: OrclSign{-A}) : 
- islossless S.sign => islossless H.hq => islossless H.hc => islossless A(H, S).main.
+declare axiom A_ll (H <: QROq{-A}) (S <: OrclSign{-A}) : 
+ islossless S.sign => islossless H.hq => islossless A(H, S).main.
 
 local clone import START.
 
@@ -277,9 +264,6 @@ proof.
   proc. conseq />. trivial.
   move => *. proc. auto.
   move => *. proc. auto.
-  + by proc; inline *; auto.
-  + by move=> *; proc; inline *; auto => /> /#.
-  + by move=> *; proc; inline *; auto.
   swap{1} 4 -3; wp.
   rnd (fun h  => fun m => if B.bf m then P2.finv sk (h m) else finv sk (h m)){2}
       (fun hs => fun m => if B.bf m then P2.f pk (hs m) else f pk (hs m)){2}.
@@ -351,14 +335,14 @@ declare qmodule A <: AdvEUF_QROM { -QRO, -EUF, -B, -Wrap, -SCD}.
 declare qmodule H <: QRO{-A, -Wrap}.
 declare module S <: OrclSign{-A}.
  
-declare axiom A_ll (H <: QRO{-A}) (S <: OrclSign{-A}) : 
-  islossless S.sign => islossless H.hq => islossless H.hc => islossless A(H, S).main.
+declare axiom A_ll (H <: QROq{-A}) (S <: OrclSign{-A}) : 
+  islossless S.sign => islossless H.hq => islossless A(H, S).main.
 
 declare axiom qbound1:
   qbound A(H,S).main [H.hq : qhq].
 
 declare axiom hoare_bound (H<:QRO{-A, -Wrap}) (S<:OrclSign{-A, -Wrap}) :
-  hoare[ Wrap(A, H, S).main : true ==> Wrap.cs <= qs /\ Wrap.ch <= qhc].
+  hoare[ Wrap(A, H, S).main : true ==> Wrap.cs <= qs].
 
 local clone import START.
 
@@ -396,7 +380,6 @@ proof.
   call (: ={QRO.h, sk, log}). 
   + by proc ; inline *; auto.
   proc. auto.
-  + by proc; inline *;auto => />;skip => />.
   swap{2} 4 1; auto; rnd{2}; auto => /> /#.
 qed.
 
@@ -404,16 +387,15 @@ qed.
 
 local hoare hoare_bound1 : Wrap(A, QRO, ASCD(QRO).Os).main : 
   QRO.ch = 0  ==>
-  QRO.ch <= qs + qhc.
+  QRO.ch <= qs.
 proof.
-  conseq (: true ==> Wrap.cs <= qs /\ Wrap.ch <= qhc) 
-         (: QRO.ch = 0 ==> QRO.ch = Wrap.cs + Wrap.ch).
+  conseq (: true ==> Wrap.cs <= qs) 
+         (: QRO.ch = 0 ==> QRO.ch = Wrap.cs ).
   + smt().
   + proc.
-    call (: QRO.ch = Wrap.cs + Wrap.ch).
+    call (: QRO.ch = Wrap.cs).
     + by proc; inline *; auto => /> *; ring.
     by proc.
-    + by proc; inline *; auto => /> *; ring.
     by auto.
   by apply (hoare_bound QRO (<:ASCD(QRO).Os)).
 qed.
@@ -426,7 +408,7 @@ local lemma l4 lam &m :
 proof.
   move=> lam_bound.
   rewrite /q.
-  apply (advantage ASCD(QRO) qhq (qhc+qs+1) lam &m lam_bound _).
+  apply (advantage ASCD(QRO) qhq (qs+1) lam &m lam_bound _).
   split.
   qbound.
   trivial.
@@ -455,9 +437,6 @@ proof.
   + by proc; auto.
   + by move => *; proc; auto.
   + by move => *; proc; auto.
-  + proc; inline *; auto => />; skip => /#.
-  + by move=> *; proc; inline *; auto => /> /#.
-  + by move=> *; proc; inline *; auto => /> /#.
   swap{1}6 -5. swap{1} 5 -3; wp.
   rnd (fun (h:msg -> hash) => fun m => finv EUF.sk{1} (h m))
       (fun (h:msg -> sign) => fun m => f EUF.pk{1} (h m)).
@@ -471,7 +450,7 @@ lemma conclusion lam &m :
   0.0 < lam < 1.0 => 
   Pr[EUF_QROM(A,FDH).main() @ &m : res] <=
   Pr[OW(B(A)).main(lam) @ &m : res] / (lam * (1%r - lam) ^ qs) + 
-   (2*(qhc +qhq) + 3*qs + 3)%r^4/ 6%r * lam / (1%r - lam) ^ qs. 
+   (2*qhq + 3*qs + 3)%r^4/ 6%r * lam / (1%r - lam) ^ qs. 
 proof. 
   move=> lam_bound.
   have : lam * (1%r - lam) ^ qs * Pr[EUF_QROM(A,FDH).main() @ &m : res] <=
@@ -485,7 +464,7 @@ axiom le_binomial x n : 0.0 <= x <= 1.0 => 0 <= n => 1%r - n%r * x <= (1%r - x) 
 (* Proof of the Zhandry's bound *)
 lemma conclusion_z &m :
   let eps = Pr[EUF_QROM(A,FDH).main() @ &m : res] in
-  let k = ((2.0*(qhc +qhq)%r + 3.0 * qs%r + 3.0)^4 + 6.0*qs%r)/6.0 in
+  let k = ((2.0*qhq%r + 3.0 * qs%r + 3.0)^4 + 6.0*qs%r)/6.0 in
   let lam = eps / (2.0 * k) in 
   eps ^ 2 / (4.0 * k) <= Pr[OW(B(A)).main(lam) @ &m : res].
 proof.
@@ -496,26 +475,26 @@ proof.
   apply: ler_trans (l5 lam &m).
   have : Pr[SCD(ASCD)._F0(lam) @ &m : res] - (2%r * q%r + qs%r + 1%r)^4/ 6%r * lam^2 <= 
              Pr[SCD(ASCD)._F1(lam) @ &m : res].
-  + by have := l4 lam &m; smt (mu_bounded gt0_qs ge0_qhc ge0_qhq expr_ge0).
+  + by have := l4 lam &m; smt (mu_bounded gt0_qs ge0_qhq expr_ge0).
   apply: ler_trans.
   rewrite -(l3 lam &m).
   apply (ler_trans 
-     (lam * (1%r - lam) ^ qs * eps - (2%r * q%r + qs%r + 1%r)^4 / 6%r * lam ^ 2)); last first.    + have := l1 A hoare_bound lam &m _ ; by smt(mu_bounded  gt0_qs ge0_qhq ge0_qhc expr_ge0).
+     (lam * (1%r - lam) ^ qs * eps - (2%r * q%r + qs%r + 1%r)^4 / 6%r * lam ^ 2)); last first.    + have := l1 A hoare_bound lam &m _ ; by smt(mu_bounded  gt0_qs ge0_qhq expr_ge0).
   apply (@ler_trans
     (lam * eps - qs%r * lam ^2 - (2%r * q%r + qs%r + 1%r)^4 / 6%r * lam ^ 2)).
   have  H: forall n qq, 0 < n => 0 <= qq => qq%r^n = qq%r^(n-1)*qq%r by smt(exprS). 
-  move : gt0_qs ge0_qhc ge0_qhq  => *; have Hq : 0 < q by smt().
+  move : gt0_qs ge0_qhq  => *; have Hq : 0 < q by smt().
   + apply lerr_eq; rewrite /lam /q /k !fromintD; field => //;
       do !(rewrite H 1,2:/# /= ?expr0 /=); 1,2: by smt().
   rewrite ler_add2.
   apply (ler_trans (lam * (1%r -qs%r*lam) * eps)); last first.
   + apply ler_wpmul2r; 1: smt(mu_bounded).
-    apply ler_wpmul2l; 1: smt(mu_bounded gt0_qs ge0_qhc ge0_qhq expr_ge0).
-    smt (le_binomial mu_bounded gt0_qs ge0_qhc ge0_qhq expr_ge0).
+    apply ler_wpmul2l; 1: smt(mu_bounded gt0_qs ge0_qhq expr_ge0).
+    smt (le_binomial mu_bounded gt0_qs ge0_qhq expr_ge0).
   rewrite expr2. 
   have /# :  qs%r * (lam * lam) * eps <= qs%r * (lam * lam).
   rewrite -{2}(mulr1 (qs%r * (lam * lam))).
-  by apply ler_wpmul2l; smt(mu_bounded gt0_qs ge0_qhc ge0_qhq).
+  by apply ler_wpmul2l; smt(mu_bounded gt0_qs ge0_qhq).
 qed.
 
 end section OW.
@@ -683,7 +662,8 @@ local lemma l3 r &m :
   0 < r =>  
   `| Pr[IND_SRr(SROr, ASRr).main(r) @ &m : res] - 
      Pr[IND_SRr(SRr , ASRr).main(r) @ &m : res] | 
-   <= (54 * q^3)%r / r%r. 
+   <= (54 * q^3)%r / r%r.  + 2) ^ 3)%r / _r%r.
+    apply ler_wpmul2l; 1:smt().
 proof.
   move=> h0r; apply (advantage_r q r ASRr &m h0r _).
   proc; inline ASRr(SROr).main SROr.h.
@@ -803,17 +783,21 @@ module B (A:AdvEUF_QROM) : AdvOW = {
   }
 }.
 
-clone import Collision  with op qQ <- qhq, op qC <- qhc + qs + 1.
+clone import Collision  with op qQ <- qhq, op qC <- qs + 1.
 
 section OW.
 
 declare qmodule A <: AdvEUF_QROM { -QRO, -EUF , -B, -Wrap, -SR}.
 
 declare axiom hoare_bound (H<:QRO{-A, -Wrap}) (S<:OrclSign{-A, -Wrap}) :
-  hoare[ Wrap(A, H, S).main : true ==> Wrap.cs <= qs /\ Wrap.ch <= qhc].
+  hoare[ Wrap(A, H, S).main : true ==> Wrap.cs <= qs].
 
-declare axiom A_ll (H <: QRO{-A}) (S <: OrclSign{-A}) : 
-  islossless S.sign => islossless H.hc => islossless H.hq => islossless A(H, S).main.
+print A.
+
+declare axiom qbound1 (H<:QRO{-A, -Wrap}) (S<:OrclSign{-A, -Wrap}) : qbound A(H,S).main [H.hq : qhq].
+
+declare axiom A_ll (H <: QROq{-A}) (S <: OrclSign{-A}) : 
+  islossless S.sign => islossless H.hq => islossless A(H, S).main.
 
 local module G1 (H:QRO) = {
   var logs : (hash * msg) list
@@ -857,7 +841,6 @@ proof.
   wp; call (: ={EUF.sk, EUF.log, QRO.h}).
   + by proc; inline *; auto.
   + by sim.
-  + by sim.
   auto => />.
 qed.
 
@@ -871,14 +854,13 @@ local module G1_col (H:QRO) = {
 
 local hoare hoare_bound1 : Wrap(A, QRO, EUF(Wrap(A, QRO), G1(QRO).FDH).Os).main : 
   QRO.ch = 0  ==>
-  QRO.ch <= qs + qhc.
+  QRO.ch <= qs.
 proof.
-  conseq (: true ==> Wrap.cs <= qs /\ Wrap.ch <= qhc) 
-         (: QRO.ch = 0 ==> QRO.ch = Wrap.cs + Wrap.ch).
+  conseq (: true ==> Wrap.cs <= qs) 
+         (: QRO.ch = 0 ==> QRO.ch = Wrap.cs).
   + smt().
   + proc.
-    call (: QRO.ch = Wrap.cs + Wrap.ch).
-    + by proc; inline *; auto => /> *; ring.
+    call (: QRO.ch = Wrap.cs).
     + by proc; inline *; auto => /> *; ring.
     + by proc; inline *; auto => /> *; ring.
     by auto.
@@ -899,13 +881,12 @@ proof.
              (G1.logs = map (fun m => (QRO.h m, m)) EUF.log){1}).
     + by proc; inline *; auto.
     + by sim />.
-    + by sim />.
-    auto => />. admit. (*smt(assocP mapP).*)
-  have /> := pr_col  G1_col. &m _.
+    auto => />. admit. (* progress.  smt(assocP mapP).*)
+  have /> := pr_col G1_col QRO &m _. split. qbound => //.
   proc. 
   inline G1_col(QRO).main G1(QRO).main EUF(Wrap(A, QRO), G1(QRO).FDH).main
-             G1(QRO).FDH.verify QRO.h; wp.
-  by call hoare_bound1; inline *; auto => /> /#.
+             G1(QRO).FDH.verify QRO.hc; wp.
+  by call hoare_bound1; inline *; auto => /> /#. rewrite /q. smt().
 qed.
 
 local module G2(H:SR) = {
@@ -927,13 +908,13 @@ qed.
 
 local hoare hoare_bound2 : Wrap(A, SRO, EUF(Wrap(A, SRO), G1(SRO).FDH).Os).main : 
   QRO.ch = 0  ==>
-  QRO.ch <= qs + qh.
+  QRO.ch <= qs .
 proof.
-  conseq (: true ==> Wrap.cs <= qs /\ Wrap.ch <= qh) 
-         (: QRO.ch = 0 ==> QRO.ch = Wrap.cs + Wrap.ch).
+  conseq (: true ==> Wrap.cs <= qs) 
+         (: QRO.ch = 0 ==> QRO.ch = Wrap.cs).
   + smt().
   + proc.
-    call (: QRO.ch = Wrap.cs + Wrap.ch).
+    call (: QRO.ch = Wrap.cs).
     + by proc; inline *; auto => /> *; ring.
     + by proc; inline *; auto => /> *; ring.
     by auto.
@@ -942,11 +923,14 @@ qed.
 local lemma SRO_SR &m : 
   `| Pr[IND_SR (SRO,G2).main() @ &m : res] - Pr[IND_SR (SR,G2).main() @ &m : res] | <=
   (27 * q^3)%r / _r%r.
-proof.
-  apply (advantage q G2 &m Rt.Support.card_gt0).
+proof. print advantage.
+  rewrite /q.
+  have -> : qhq + (qs +1) =  qs + 1 + qhq by smt().
+  apply (advantage G2 QRO  (qs + 1) qhq &m Rt.Support.card_gt0).
+  split. qbound. trivial.
   proc.
   inline G2(SRO).main G1(SRO).main EUF(Wrap(A, SRO), G1(SRO).FDH).main
-             G1(SRO).FDH.verify QRO.h; wp.
+             G1(SRO).FDH.verify QRO.hc; wp.
   by call hoare_bound2; inline *; auto => /> /#.
 qed.
 
@@ -996,14 +980,14 @@ local lemma G3_OW &m:
   Pr[G3.main() @ &m : res] <= Pr[OW(B(A)).main(_r) @ &m : res].
 proof.
   byequiv=> //; proc; inline *.
-  swap{1} -24; wp.
+  swap{1} -23; wp.
   symmetry.
   call (_: exists m', m' \in EUF.log /\ r2i (SR.fr m') = G3.i, 
            ={QRO.h, EUF.log} /\ 
            (G1.logs = map (fun m => (QRO.h m, m)) EUF.log){2} /\
            (forall m, r2i (SR.fr{2} m) <> G3.i{2} => 
               B.hs{1} m = (finv EUF.sk (QRO.h m)){2}),
-          (G1.logs = map (fun m => (QRO.h m, m)) EUF.log){2}) => //.
+          (G1.logs = map (fun m => (QRO.h m, m)) EUF.log){2}) => //. 
   + by apply A_ll.
   + by proc; inline *; auto => /> /#.
   + by move=> *; proc; auto.
@@ -1015,7 +999,7 @@ proof.
   swap{1} [10..11] 1.
   swap{1} 5 -4.
   swap{1} [4..6] 4; wp.
-  swap{2} [2..2] -2; sp.
+  sp.
   swap{1} 2 2.
   rnd.
   seq 2 2 : (#pre /\ k{2} = (pk,sk){1} /\ G3.i{2} = i0{1} /\ 0 <= G3.i{2} < _r /\
@@ -1029,10 +1013,9 @@ proof.
       case: (r2i (fr m') < size rs1) => ?.
       + rewrite (nth_map witness witness (f pk{1}) (r2i (fr m'))); 1: by smt(r2i_range). 
          by rewrite (finv_f _ _ hk) //. 
-      rewrite (nth_map witness witness (f pk{1})); 1: by smt(r2i_range).
-      by smt(finv_f).
-    smt (finv_f f_finv nth_cat size_map mapP map_comp).
-  transitivity * {2} { SR.rh <@ Sample.sample(_r); } => //; 1:smt(); last by inline *;auto.
+      rewrite (nth_map witness witness (f pk{1})); 1: by smt(r2i_range). admit. admit. (* by smt(finv_f).*)
+   (* smt (finv_f f_finv nth_cat size_map mapP map_comp).*)
+  transitivity * {2} { SR.rh <@ Sample.sample(_r); } => //; last by inline *;auto.
   transitivity {2} { SR.rh <@ S.sample2(G3.i, _r - G3.i - 1); } 
     (r{1} = _r /\ i0{1} = G3.i{2} /\ (pk,sk){1} \in kg /\ 0 <= G3.i{2} < _r ==> 
        SR.rh{2} = map (f pk{1}) rs1{1} ++ y{1} :: map (f pk{1}) rs2{1} /\
@@ -1084,10 +1067,10 @@ lemma conclusion &m :
   let rhash = mu1 dhash witness in
   (3 * k)%r * rhash <= eps =>
   eps ^2 / (6 * k)%r <= Pr[OW(B(A)).main(_r) @ &m : res].
-proof.
+proof. 
   move=> eps k Hr rhash hhe.
   have h0rhash: 0.0 < rhash by smt(dhash_fu).
-  have gt0_q3 : 1 <= (q + 2) ^ 3 by apply IntOrder.exprn_ege1 => //; smt (gt0_qs ge0_qh).
+  have gt0_q3 : 1 <= (q + 2) ^ 3 by apply IntOrder.exprn_ege1 => //; smt (gt0_qs ge0_qhq).
   have heps : 0%r < eps by smt().
   have gt0_r : 0 < _r. 
   + smt(floor_bound mu_bounded).
@@ -1102,7 +1085,7 @@ proof.
   have -> : eps ^ 2 / (6 * k)%r = eps / (3 * k)%r * (eps/2%r) by field => //; smt(). 
   apply ler_wpmul2l; 1: smt().
   apply (ler_trans (Pr[IND_SR(SRO, G2).main() @ &m : res] - (27*(q+2)^3)%r/_r%r)); last first.
-  + by have := SRO_SR &m; smt (IntOrder.ler_pexp gt0_qs ge0_qh).
+  +  have H0 := SRO_SR &m. apply ler_subl_addr. have -> : Pr[IND_SR(SR, G2).main() @ &m : res] + (27 * (q + 2) ^ 3)%r / _r%r = (27 * (q + 2) ^ 3)%r / _r%r + Pr[IND_SR(SR, G2).main() @ &m : res] by ring. apply ler_subl_addr. apply (StdOrder.RealOrder.ler_trans ( (27 * q ^ 3)%r / _r%r)) . smt(). have Hpow : q ^ 3 <= (q + 2) ^ 3. apply IntOrder.ler_pexp. trivial. smt( gt0_qs ge0_qhq). admit. (* smt().*) 
   apply (ler_trans (eps - (27 * (q + 2) ^ 3)%r / _r%r - (27 * (q + 2) ^ 3)%r / _r%r));
     last first.
   + rewrite ler_add2r.

@@ -121,6 +121,8 @@ module Fun : sig
     memenv * (funsig * function_def) * memenv * (funsig * function_def) * env
 
   val is_quantum : xpath -> env -> bool
+
+  val is_classical : xpath -> env -> bool
 end
 
 (* -------------------------------------------------------------------- *)

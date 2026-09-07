@@ -215,8 +215,8 @@ theory Zp <= Zmod
   remove abbrev Zp.(-)
   remove abbrev Zp.(/)
 
-  remove abbrev Zp.ZModpRing.(-)
-  remove abbrev Zp.ZModpRing.(/)
+ (* remove abbrev Zp.ZModpRing.(-)*)
+ (* remove abbrev Zp.ZModpRing.(/)*)
 
   rename [theory] "Zp" as "Zrmod".
 
@@ -683,7 +683,7 @@ qed.
 
 lemma Zq2Zp_Zp2Zq_small_inv (z : Zq) : asint z < p => Zp2Zq (Zq2Zp z) = z.
 proof.
-move => ltp_z; by rewrite /Zq2Zp /Zp2Zq -{2}asintK inzmodK pmod_small 2?(ge0_asint, ltp_z).
+move => ltp_z;by rewrite /Zq2Zp /Zp2Zq -{2}(Zq.asintK z) inzmodK pmod_small 2?(ge0_asint, ltp_z).
 qed.
 
 (* Polynomial Lift Modular Reduction/Modulo Conversion *)
@@ -1157,8 +1157,8 @@ rewrite -eq_inzmod !inzmodK /p /q (pmod_small _ (2 ^ ep)); last first.
 + by rewrite (upscale_comp_comm _ eq 1 ep); smt(ge2_ep geep1_eq).
 + rewrite /upscale /shl; split => [| ?]; first by rewrite mulr_ge0 1:ge0_asint expr_ge0.
   rewrite -ltz_divRL 1:expr_gt0 // 1:dvdz_exp2l; first smt(ge2_ep).
-  have -> //=: 2 ^ ep = 2 * 2 ^ (ep - 1).
-  - by rewrite -{2}expr1 -exprD_nneg; 1, 2: smt(ge2_ep); congr; ring.
+  have -> //=: 2 ^ ep = 2 * 2 ^ (ep - 1). print expr1. 
+  - by rewrite -{2}(IntID.expr1 2) -IntID.exprD_nneg; 1, 2: smt(ge2_ep); congr; ring.
   by rewrite mulzK 1:neq_ltz 1:expr_gt0 3:Z2.gtp_asint.
 qed.
 

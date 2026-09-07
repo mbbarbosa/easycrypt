@@ -651,7 +651,7 @@ wp. rnd (fun (x:W*Pstate) => ((x.`1,m{2}),x.`2)) (fun (x: (W*M)*Pstate) => (x.`1
     + move => x h. rewrite dmap1E. congr. rewrite / pred1 /(\o)/=; have h0 := supp_dmap(commit  O_CMA_Default.sk{2}) (fun (x0 : W * Pstate) => ((x0.`1, m{2}), x0.`2)) x; rewrite fun_ext => x0; smt().
   + move => h wps h0. split. 
     + by have h1 := supp_dmap(commit  O_CMA_Default.sk{2}) (fun (x0 : W * Pstate) => ((x0.`1, m{2}), x0.`2))((wps.`1, m{2}), wps.`2); smt ().
-    + by have h1 := supp_dmap(commit  O_CMA_Default.sk{2}) (fun (x0 : W * Pstate) => ((x0.`1, m{2}), x0.`2))((wps.`1, m{2}), wps.`2); smt ().
+    + by have h1 := supp_dmap(commit  O_CMA_Default.sk{2}) (fun (x0 : W * Pstate) => ((x0.`1, m{2}), x0.`2))((wps.`1, m{2}), wps.`2); smt (). 
 + admit.
 + proc. inline *. by auto => />. 
 + auto => />.
@@ -670,7 +670,7 @@ inline*. wp. call (_ : RepO.b{2} = true /\ ={glob O_CMA_Default} /\ ={prog_list}
     + move => x h. rewrite dmap1E. congr. rewrite / pred1 /(\o)/=; have h0 := supp_dmap(commit  O_CMA_Default.sk{2}) (fun (x0 : W * Pstate) => ((x0.`1, m{2}), x0.`2)) x; rewrite fun_ext => x0; smt().
   + move => h wps h0. split. 
     + by have h1 := supp_dmap(commit  O_CMA_Default.sk{2}) (fun (x0 : W * Pstate) => ((x0.`1, m{2}), x0.`2))((wps.`1, m{2}), wps.`2); smt ().
-    + have h1 := supp_dmap(commit  O_CMA_Default.sk{2}) (fun (x0 : W * Pstate) => ((x0.`1, m{2}), x0.`2))((wps.`1, m{2}), wps.`2); smt ().
+    + have h1 := supp_dmap(commit  O_CMA_Default.sk{2}) (fun (x0 : W * Pstate) => ((x0.`1, m{2}), x0.`2))((wps.`1, m{2}), wps.`2); smt (). proc.
 + admit.
 + proc. inline *. by auto => />. 
 + auto => />. (*

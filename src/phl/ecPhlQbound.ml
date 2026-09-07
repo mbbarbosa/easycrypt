@@ -132,11 +132,11 @@ and qbound_abstract (callee : xpath) (ois : oracle_info) (o : xpath) (env : env)
     let l = List.snd (Ax.all ~check:(fun _ a -> List.exists (fun o' -> check a callee o' oi env && not (x_equal o o')) ois) env) in
     if List.is_empty l then f_i0
     else
-    match (List.hd l).ax_spec.f_node with Fqbound qb -> Format.eprintf "hit! \n%!"; f_int_mul qb.qb_bound qo | _ -> assert false
+    match (strip_forall (List.hd l).ax_spec).f_node with Fqbound qb -> Format.eprintf "hit! \n%!"; f_int_mul qb.qb_bound qo | _ -> assert false
   in
   let l = List.snd (Ax.all ~check:(fun _ a -> List.exists (fun o' -> check a callee o' o env) ois) env) in
   let qb = if List.is_empty l then f_i0 else
-    match (List.hd l).ax_spec.f_node with Fqbound qb -> qb .qb_bound| _ -> assert false in
+    match (strip_forall (List.hd l).ax_spec).f_node with Fqbound qb -> qb .qb_bound| _ -> assert false in
   sum_int_forms (List.map doit ois) |> f_int_add_simpl qb
 
 

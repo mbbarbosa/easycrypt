@@ -51,6 +51,10 @@ qmodule type QRO = {
   include QRO_i [hq,hc]
 }.
 
+qmodule type QROq = {
+  include QRO [hq]
+}.
+
 module QRO : QRO_i = {
   var  h : from -> hash
   var ch : int

@@ -1,22 +1,22 @@
 require import Int FinType Real.
    
-quantum module type Foo_t = {
-  quantum proc a{x:int} : int
+qmodule type Foo_t = {
+  qproc a(x:int) : int
 }.
-realize typing_0. auto. qed.
-realize typing_1. auto. qed.
+(*realize typing_0. auto. qed.
+realize typing_1. auto. qed.*)
 
-quantum module type Foo2_t = {
-  quantum proc c{x:int} : int
+qmodule type Foo2_t = {
+  qproc c(x:int) : int
 }.
-realize typing_0. auto. qed.
-realize typing_1. auto. qed.
+(*realize typing_0. auto. qed.
+realize typing_1. auto. qed.*)
      
 module Foo : Foo_t = {
   var ctr: int
   var f: int -> int
   
-  quantum proc a{x} = { 
+  qproc a(x) = { 
     ctr <- ctr + 1; 
     return f x; }
 
@@ -57,27 +57,29 @@ module Foo : Foo_t = {
     *)
         
   }.
-realize typing_0. auto. qed.
-realize typing_1. auto. qed.
+
+(*realize typing_0. auto. qed.
+realize typing_1. auto. qed.*)
 
 module Foo2 : Foo2_t = {
 
-  quantum proc c{x} = {
+  qproc c(x) = {
     Foo.ctr <- Foo.ctr + 2;
     return Foo.f (Foo.f x);
   }   
 }.
+(*
 realize typing_0. auto. qed.
-realize typing_1. auto. qed.
+realize typing_1. auto. qed.*)
 
   
 type T.
 
-quantum module type A_t(F: Foo_t) = {
+qmodule type A_t(F: Foo_t) = {
   proc run() : T
 }.
 
-quantum module type A2_t(F2: Foo2_t) = {
+qmodule type A2_t(F2: Foo2_t) = {
   proc run() : T
 }.
 
@@ -169,10 +171,10 @@ Do get:
 module Evil_2(A2: A2_t)(Foo: Foo_t) = {
   module MyFoo2 : Foo2_t = {
           
-  quantum proc c{x} = { 
-    quantum var y; 
-    y <@ Foo.a{x}; 
-    y <@ Foo.a{y}; 
+  qproc c(x) = { 
+    var y; 
+    y <@ Foo.a(x); 
+    y <@ Foo.a(y); 
     return y; 
     }
   }
@@ -183,15 +185,16 @@ module Evil_2(A2: A2_t)(Foo: Foo_t) = {
     return result;    
   }
 }.
-realize typing_0. auto. qed.
-realize typing_1. auto. qed.
+
+(*realize typing_0. auto. qed.
+realize typing_1. auto. qed.*)
 
 
 (* Evil_2(A2)(Foo) == A2(Foo2) *)
 
 section.
 
-declare module A2 <: A2_t{-Foo, -Foo2}.
+declare qmodule A2 <: A2_t{-Foo, -Foo2}.
 
 equiv toto: Evil_2(A2, Foo).run ~ A2(Foo2).run : ={glob A2} /\ ={glob Foo} 
  ==> ={res}.
