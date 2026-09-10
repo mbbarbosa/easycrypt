@@ -149,4 +149,4 @@ let process_qbound (tc : tcenv1) =
   let f = Fun.by_xpath x env in
   let rec body f = match f.f_def with | FBdef fb -> fb.f_body | FBalias x -> body (Fun.by_xpath x env) | _ -> assert false in
   let sum = match f.f_def with | FBabs ois -> qbound_abstract x ois o env | _ -> qbound_concrete (body f) o env in
-  FApi.xmutate1 tc `Qbound [(f_int_le_simpl sum qb)]
+  FApi.xmutate1 tc `Qbound [(f_int_le sum qb)]
