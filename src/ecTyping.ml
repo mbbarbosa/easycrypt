@@ -3790,9 +3790,13 @@ and trans_codeoffset1 ?(memory: memory option) (env : EcEnv.env) (o : pcodeoffse
   | `ByPosition p -> `ByPosition (trans_codepos1 ?memory env p) 
 
 and check_quantumness stmt is_qfun =
+  let lv_has_no_glob lv =
+    not (List.exists EcTypes.is_glob (EcModules.lv_to_list lv))
+  in
   let check_instr instr =
     match instr.i_node with
-    | Sasgn _ | Scall _ -> true
+    | Sasgn (lv, _) -> lv_has_no_glob lv
+    | Scall (lv, _, _) -> ofold (fun lv b -> b && lv_has_no_glob lv) true lv
     | _ -> false
   in
   if is_qfun = `Quantum then List.for_all check_instr stmt.s_node else true

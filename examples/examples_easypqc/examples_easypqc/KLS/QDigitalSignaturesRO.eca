@@ -751,7 +751,7 @@ theory Stateless_RO.
     -
   *)
   (* Class of adversaries against EF-CMA *)
-  qmodule type Adv_EFCMA_RO(R : QRO, O : SOracle_CMA) = {
+  qmodule type Adv_EFCMA_RO(R : QROq, O : SOracle_CMA) = {
     proc forge(pk : pk_t) : msg_t * sig_t
   }.
 
@@ -1601,7 +1601,7 @@ theory KeyUpdating_RO.
     -
   *)
   (* Class of adversaries against EF-CMA *)
-  qmodule type Adv_EFCMA_RO(R : QRO, O : SOracle_CMA) = {
+  qmodule type Adv_EFCMA_RO(R : QROq, O : SOracle_CMA) = {
     proc forge(pk : pk_t) : msg_t * sig_t
   }.
 

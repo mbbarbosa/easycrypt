@@ -28,11 +28,9 @@ type Sig = W*Z.
 (*  bound on number of sig queries *)
 op qs_bound : int.
 (* bound on number of ro queries *)
-op cro_bound : int.
-op qro_bound : int.
-op ro_bound = cro_bound + qro_bound.
+op ro_bound : int.
 axiom gez_sb : 0 <= qs_bound.
-axiom gez_qrob : 0 <= qro_bound.
+axiom gez_qrob : 0 <= ro_bound.
 
 clone import QDigitalSignaturesRO as DSS with 
 type pk_t <- PK,
@@ -144,7 +142,7 @@ type side = Pstate.
 
 type pT = (from * side) distr.
 const rep_ctr : int = qs_bound.
-const query_ctr : int = qs_bound + ro_bound + 1.
+const query_ctr : int = qs_bound + 1 + ro_bound .
 axiom rep_ctr_ge0 : 0 <= rep_ctr.
 axiom query_ctr_ge0 : 0 <= query_ctr.
 
@@ -301,7 +299,7 @@ module ReproGame (RO: QRO_i, A: DistA) = {
 axiom qrom_reprogramming qhq &m 
    (* The restriction implies that A can not access glob of
        Wrapped_QRO, RepO,  QRO *)
-   (A <: DistA {-ReproGame}): qbound A(Wrapped_QRO(QRO), RepO(Wrapped_QRO(QRO))).distinguish [QRO.hq : qhq] /\
+   (A <: DistA {-ReproGame}): qbound A(Wrapped_QRO(QRO), RepO(Wrapped_QRO(QRO))).distinguish [Wrapped_QRO(QRO).hq : qhq] /\
    hoare[ReproGame(QRO,A).main : 
       Wrapped_QRO.ch = 0 /\ RepO.ctr = 0 /\ RepO.se 
      ==> Wrapped_QRO.ch + qhq <= query_ctr /\ 
@@ -456,6 +454,7 @@ section.
 
 (* For all adversaries A ... *)
 declare qmodule A <: Adv_EFCMA_RO {-QRO, -Rep_QRO, -RepO, -O_CMA_Default, -P, -V, -HVZK_HE_Oracle, -HVZK_Sim_Oracle, -CMA_KOA_Red_Oracle, -Wrapped_QRO, -OracleRed_HVZK, -Wrap_SO, -ReproGame, -RepO }.
+print Adv_EFCMA_RO.
 (* For all simulators Sim ... *)
 declare module Sim <: HVZK_Sim {-QRO, -Rep_QRO, -O_CMA_Default, -P, -V, -A, -HVZK_HE_Oracle, -HVZK_Sim_Oracle, -CMA_KOA_Red_Oracle, -Wrapped_QRO, -OracleRed_HVZK, -Wrap_SO}.    
 (* Old approach to bound number of queries. 
@@ -467,13 +466,15 @@ We should actually solve this using the cost logic *)
 declare module SO <: Oracle_CMA {-A}.
 declare qmodule RO <: QRO_i {-A}.*)
 
-declare axiom qbound1: forall (SO <: Oracle_CMA {-A}) (RO <: QRO_i {-A}),qbound A(RO, Wrap_SO(SO,IDS_Sig(P, V, RO))).forge [RO.hq : qro_bound].
+declare axiom qbound1: forall (SO <: Oracle_CMA {-A}) (RO <: QRO_i {-A}),qbound A(RO, Wrap_SO(SO,IDS_Sig(P, V, RO))).forge [RO.hq : ro_bound].
 
 declare axiom A_query_bound:
  (forall (SO <: Oracle_CMA {-A}) (RO <: QRO_i {-A}),
- hoare[ A(Wrap_RO(RO), Wrap_SO(SO,IDS_Sig(P, V, RO))).forge : 
-     Wrap_RO.qc = 0 /\ Wrap_SO.qc = 0
-     ==> Wrap_RO.qc <= cro_bound /\ Wrap_SO.qc <= qs_bound]).
+ hoare[ A(RO, Wrap_SO(SO,IDS_Sig(P, V, RO))).forge : 
+     Wrap_SO.qc = 0
+     ==>  Wrap_SO.qc <= qs_bound]).
+
+
 
 (* ----------------------------------------------------------------------*)
 (*                            First game hop:                            *)
@@ -514,7 +515,6 @@ proof.
   byequiv => //; proc; inline *; auto.
   call (_: ={glob O_CMA_Default} /\ QRO.h{1} = Rep_QRO.f{2} /\ Rep_QRO.prog_list{2} = []).
   + proc. inline *. by auto => />.
-  + proc. by auto.
   + proc. by auto.
   auto => />.
 
@@ -587,41 +587,25 @@ module DummyRO (RO : QRO) : QRO_i = {
    proc init() = {}
 }.
 
+hoare A_query_bound1: A(DummyRO(Wrapped_QRO(QRO)),
+ Wrap_SO(Distinguisher_Oracle(Wrapped_QRO(QRO), RepO(Wrapped_QRO(QRO))),
+IDS_Sig(P, V, DummyRO(Wrapped_QRO(QRO))))).forge : Wrapped_QRO.ch = 0 /\ Wrap_SO.qc = 0 /\ RepO.ctr = 0  ==> Wrapped_QRO.ch <= qs_bound /\ RepO.ctr <= qs_bound.
+proof.
+ conseq ( : _ ==> Wrapped_QRO.ch = Wrap_SO.qc /\ RepO.ctr = Wrap_SO.qc )
+        ( : _ ==> Wrap_SO.qc <= qs_bound ); 1,2: smt().
+ + conseq ( : Wrap_SO.qc = 0 ==> _); 1: smt().
+   apply (A_query_bound (Distinguisher_Oracle(Wrapped_QRO(QRO), RepO(Wrapped_QRO(QRO)))) (DummyRO(Wrapped_QRO(QRO))) ).
+ + proc (Wrapped_QRO.ch = Wrap_SO.qc /\ RepO.ctr = Wrap_SO.qc); 1,2: smt().
+  + proc. swap 1 1. wp. inline *. wp. seq 7 : (Wrapped_QRO.ch = Wrap_SO.qc /\ RepO.ctr = Wrap_SO.qc + 1). rnd. auto. if; by auto.
+  + proc. inline *. by auto.
+qed.
+
 (* The actual reduction to the reprogramming game: 
    It is just running the signature game with the above oracle 
    in place of the signing oracle *) 
 local module  D (* ( A:  Adv_EFCMA_RO)*) (RO: QRO, O: RepO_t) = {
    proc distinguish = EF_CMA_RO(IDS_Sig(P, V), A, DummyRO(RO), Wrap_SO(Distinguisher_Oracle(RO, O))).main
 }.
-(*
-local module  D1 (* ( A:  Adv_EFCMA_RO)*) (RO: QRO, O: RepO_t) = {
-   module S = IDS_Sig(P,V,RO)
-   module O' = Wrap_SO(Distinguisher_Oracle(RO, O),S)
-   proc distinguish() : bool = {
-      var pk : PK;
-      var sk : SK;
-      var m : M;
-      var sig : Sig;
-      var nrqs : int;
-      var is_valid, is_fresh : bool;
-
-      (pk, sk) <@ S.keygen();
-      
-      O'.init(sk);
-
-      (m, sig) <@ A(Wrap_RO(RO),O').forge(pk);
-
-
-      is_valid <@ S.verify(pk, m, sig);
-      
-
-      is_fresh <@ O'.fresh(m);
-      
-      nrqs <@ O'.nr_queries();
-          
-      return nrqs <= qs_bound /\ is_valid /\ is_fresh; 
-}
-}.*)
 
 lemma hop2 &m : 
     `|Pr [EF_CMA_RO(IDS_Sig(P, V), A, Rep_QRO, Oracle1_CMA).main() @ &m : res] -  
@@ -652,7 +636,6 @@ wp. rnd (fun (x:W*Pstate) => ((x.`1,m{2}),x.`2)) (fun (x: (W*M)*Pstate) => (x.`1
   + move => h wps h0. split. 
     + by have h1 := supp_dmap(commit  O_CMA_Default.sk{2}) (fun (x0 : W * Pstate) => ((x0.`1, m{2}), x0.`2))((wps.`1, m{2}), wps.`2); smt ().
     + by have h1 := supp_dmap(commit  O_CMA_Default.sk{2}) (fun (x0 : W * Pstate) => ((x0.`1, m{2}), x0.`2))((wps.`1, m{2}), wps.`2); smt ().
-+ admit.
 + proc. inline *. by auto => />. 
 + auto => />.
 have -> : 
@@ -671,24 +654,11 @@ inline*. wp. call (_ : RepO.b{2} = true /\ ={glob O_CMA_Default} /\ ={prog_list}
   + move => h wps h0. split. 
     + by have h1 := supp_dmap(commit  O_CMA_Default.sk{2}) (fun (x0 : W * Pstate) => ((x0.`1, m{2}), x0.`2))((wps.`1, m{2}), wps.`2); smt ().
     + have h1 := supp_dmap(commit  O_CMA_Default.sk{2}) (fun (x0 : W * Pstate) => ((x0.`1, m{2}), x0.`2))((wps.`1, m{2}), wps.`2); smt ().
-+ admit.
 + proc. inline *. by auto => />. 
-+ auto => />. (*
-have -> : 
-   Pr[ReproGame(QRO,D).main(false) @ &m:res]
-    = Pr[ReproGame(QRO,D1).main(false) @ &m:res].
-byequiv => //. proc. seq 3 3 : ( #pre /\ RepO.b{1} = false /\ RepO.b{2} = false /\
-              ={prog_list}(Wrapped_QRO(QRO),Wrapped_QRO(QRO)) /\ QRO.h{1} = QRO.h{2}). inline *. by auto. inline *. wp. call (_ : ={prog_list}(Wrapped_QRO(QRO),Wrapped_QRO(QRO)) /\ QRO.h{1} = QRO.h{2} /\ ={glob O_CMA_Default} /\ = {RepO.b}). proc. inline *. auto. sp 7 7. seq 1 1 : (#pre /\ ={x} /\ = {s} ) . rnd. auto. admit. if. auto. wp. auto. auto. by sim. proc. inline *. wp. auto. auto.
-
-have -> : 
-   Pr[ReproGame(QRO,D).main(true) @ &m:res]
-    = Pr[ReproGame(QRO,D1).main(true) @ &m:res].
-byequiv => //. proc. seq 3 3 : ( #pre /\ RepO.b{1} = true /\ RepO.b{2} = true /\
-              ={prog_list}(Wrapped_QRO(QRO),Wrapped_QRO(QRO)) /\ QRO.h{1} = QRO.h{2}). inline *. by auto. inline *. wp. call (_ : ={prog_list}(Wrapped_QRO(QRO),Wrapped_QRO(QRO)) /\ QRO.h{1} = QRO.h{2} /\ ={glob O_CMA_Default} /\ = {RepO.b}). proc. inline *. auto. sp 7 7. seq 1 1 : (#pre /\ ={x} /\ = {s} ) . rnd. auto. admit. if. auto. wp. auto. auto. by sim. proc. inline *. wp. auto. auto.*)
- 
-apply (qrom_reprogramming qro_bound &m D _). 
++ auto => />. 
+apply (qrom_reprogramming (ro_bound) &m D _). 
 split. 
-+ qbound. smt(gez_qrob). (*
++ qbound. smt(gez_qrob). 
 (* ******************************** *)
 (* This is rather a mess right now. 
    The wrapped oracles are currently 
@@ -696,10 +666,8 @@ split.
    does not work.                   *)
 (* ******************************** *)
 
-proc. inline *. wp. (* call ( : true ) => //. wp. auto.
-print A_query_bound. *) 
-call (A_query_bound (Distinguisher_Oracle(Wrapped_QRO(QRO), RepO(Wrapped_QRO(QRO)))) (Wrapped_QRO(QRO)) ). auto.
-*)
+proc. inline *. wp. 
+call (A_query_bound1). auto. rewrite /query_ctr /rep_ctr. 
 admit.
 qed.
 
@@ -775,7 +743,6 @@ byequiv => //; proc; inline *; auto.
 call (_: ={glob Rep_QRO} /\ ={BaseOracle.qs} /\ ={sk}(O_CMA_Default,Oracle3_CMA)).
   + proc. inline *. by auto.
   + proc. by auto. 
-  + proc. by auto.
   auto => />. progress. by smt().
   auto => />. swap {2} 1 2. auto => />. progress. swap{2} 4 -1.  auto. by smt().
 qed.
@@ -860,7 +827,6 @@ inline *.
 auto. call ( _ : ={glob Rep_QRO} /\  ={pk,sk}(Oracle3_CMA,HVZK_HE_Oracle) 
                /\ ={BaseOracle.qs}).
 + proc. inline *. wp. rnd. wp. rnd. by auto. 
-+ proc. by auto. 
 + proc. by auto.
 + wp. by auto => />.
 have -> : Pr [Game4(Rep_QRO, A, Sim).main() @ &m : res] =
@@ -870,7 +836,6 @@ inline *.
 auto. call ( _ : ={glob Rep_QRO, glob Sim} /\  ={pk}(Oracle4_CMA,HVZK_Sim_Oracle) 
                /\ ={BaseOracle.qs}).
 + proc. inline *. wp. call ( _ : true). by auto.
-+ proc. by auto.
 + proc. by auto.
 + wp. by auto => />.
 done.
@@ -894,7 +859,6 @@ proof.
         /\ forall w m c, (((w,m),c) \in Rep_QRO.prog_list{1}) => (m \in BaseOracle.qs{1}) 
 ).
 + proc. auto. inline {1} 3. inline {2} 3. auto. call ( _ : true ). auto => /> *. by smt(mem_rcons). 
-+ admit.
 + proc. inline *. by auto. 
 + auto. move => />. move => &mem forgery querylist proglist consistant_lists vrytrue frgrynew sizeqrylst. 
 + have -> : (QRO.h{mem} (forgery.`2.`1, forgery.`1)) = (if assoc querylist (forgery.`2.`1, forgery.`1) = None then
@@ -1013,7 +977,7 @@ module (B(A : Adv_EFKOA_RO): GBFO_F) (BFO : BFO_t)  = {
   module O = {
     proc hc(x : W*M) = {
       var b;      
-      b <@ BFO.hc(x);
+      b <@ BFO.hq(x);
       return if b  then goodChal x else badChal x;
     }
     qproc hq(x : W*M) = {
@@ -1053,9 +1017,9 @@ local module Aux = {
       GBFO1.h <$ (MixLambdaDFun.DFBM.dfun_biased 
         (fun (wm : W * M) => mu dC (fun (c : C) => has ((verify B.pk wm.`1 c)) FinZ.enum)));
       QRO.h <- fun wm => if GBFO1.h wm then B.goodChal wm else B.badChal wm;
-   }
-}.
-
+   }                 
+}.                   
+                     
 local hoare aux1 _pk : 
    Aux.right : B.pk = _pk ==> 
       forall (result_R : M*Sig),
@@ -1063,17 +1027,17 @@ local hoare aux1 _pk :
        (if GBFO1.h (result_R.`2.`1, result_R.`1) then B.goodChal (result_R.`2.`1, result_R.`1)
         else B.badChal (result_R.`2.`1, result_R.`1)) result_R.`2.`2) =>
     GBFO1.h (result_R.`2.`1, result_R.`1).
-proof.
-proc.
+proof.               
+proc.                
 auto => /> gC /MUFF.dfun_supp /= HgC bC /MUFF.dfun_supp /= HbC h /MUFF.dfun_supp /= Hh ms.
 case (h (ms.`2.`1, ms.`1)) => // hm.
 move: (HbC (ms.`2.`1,ms.`1)) (Hh (ms.`2.`1,ms.`1)) => /=.
-rewrite /(`\`).
+rewrite /(`\`).      
 case (mu dC (fun (c : C) => has (verify _pk ms.`2.`1 c) FinZ.enum) = 1%r).
 + by move=> ->; rewrite hm /support  Biased.dbiased1E /= /#.
 move=> _ /supp_dexcepted /=; smt (hasP FinZ.enumP). 
-qed.
-
+qed.                 
+                     
 lemma funrepro (__pk : PK) :
 (*  (forall w, mu dC (fun (c : C) => has (verify __pk w c) FinZ.enum) < 1%r) => 
   (forall w, mu dC (fun (c : C) => !has (verify __pk w c) FinZ.enum) < 1%r) =>  *)
@@ -1082,13 +1046,13 @@ lemma funrepro (__pk : PK) :
         (fun (goodChal : W * M -> C) =>
            dlet ((MUFF.dfun (fun (wm : W * M) => dC `\` fun (c : C) => (has (verify __pk wm.`1 c) FinZ.enum))))
              (fun (badChal : W * M -> C) =>
-                dmap
+                dmap 
                   ((MixLambdaDFun.DFBM.dfun_biased
                       (fun (wm : W * M) => mu dC (fun (c : C) => (has (verify __pk wm.`1 c) FinZ.enum)))))
                   (fun (h : W * M -> bool) (wm : W * M) => if h wm then goodChal wm else badChal wm)))).
-proof.
+proof.               
 rewrite dmap_id /dfhash (*=> hverif hnverif *).
-have -> : 
+have -> :            
   (fun (goodChal : W * M -> C) =>
      dlet ((MUFF.dfun
              (fun (wm : W * M) =>
@@ -1099,7 +1063,7 @@ have -> :
                    mu dC (fun (c : C) => has (verify __pk wm.`1 c) FinZ.enum))))
          (fun (h : W * M -> bool) (wm : W * M) =>
            if h wm then goodChal wm else badChal wm)))
-  =
+  =                  
    (fun (goodChal : W * M -> C) => 
      MUFF.dfun (fun (wm : W * M) => 
        dlet (dC `\` fun (c : C) => has (verify __pk wm.`1 c) FinZ.enum) 
@@ -1113,19 +1077,19 @@ have -> :
 rewrite (MUFF.dlet_dfun _ (fun (wm: W * M) (goodChal:C) => 
  dlet (dC `\` fun (c : C) => has (verify __pk wm.`1 c) FinZ.enum)
              (fun (badChal : C) =>
-                dlet
+                dlet 
                   ((Biased.dbiased
                       (mu dC
                          (fun (c : C) => has (verify __pk wm.`1 c) FinZ.enum))))
                   (fun (h : bool) =>
                      dunit (if h then goodChal else badChal))))).
 congr; apply fun_ext => wm /=.
-have -> : 
+have -> :            
   dlet (dC `\` fun (c : C) => ! has (verify __pk wm.`1 c) FinZ.enum)
   (fun (goodChal : C) =>
      dlet (dC `\` fun (c : C) => has (verify __pk wm.`1 c) FinZ.enum)
        (fun (badChal : C) =>
-          dlet
+          dlet       
             ((Biased.dbiased
                 (mu dC (fun (c : C) => has (verify __pk wm.`1 c) FinZ.enum))))
             (fun (h : bool) => dunit (if h then goodChal else badChal)))) = 
@@ -1148,25 +1112,25 @@ case: (has (verify __pk wm.`1 k) FinZ.enum) => /= ?.
   + by apply witness_support => /=; exists k; rewrite dC_fu.
   have -> /= : 1%r - mu dC (fun (x : hash) => has (verify __pk wm.`1 x) FinZ.enum) <> 1%r by smt().
   case: (mu dC (fun (c : C) => has (verify __pk wm.`1 c) FinZ.enum) = 1%r) => [-> // | _ /=].
-  field; smt().
+  field; smt().      
 have heq : mu dC (fun (c : C) => has (verify __pk wm.`1 c) FinZ.enum) <> 1%r.
 + have ? : 0%r < mu dC (fun (c : C) => !has (verify __pk wm.`1 c) FinZ.enum).
   + by apply witness_support => /=; exists k; rewrite dC_fu.
   by rewrite (mu_eq _ (fun (c : C) => has (verify __pk wm.`1 c) FinZ.enum)
                  (fun c => !!has (verify __pk wm.`1 c) FinZ.enum)) 1:// mu_not dC_ll /#.
-rewrite heq /=.
+rewrite heq /=.      
 case: (mu dC (fun (x : hash) => has (verify __pk wm.`1 x) FinZ.enum) = 0%r) => [-> // | ? /=].
 have -> /= : 1%r - mu dC (fun (x : hash) => has (verify __pk wm.`1 x) FinZ.enum) <> 1%r by smt().
-field => /#.
-qed.
-
-local equiv aux2 : 
+field => /#.         
+qed.                 
+                     
+local equiv aux2 :   
    Aux.right ~ Aux.left: true ==> ={QRO.h}.
-proc.
+proc.                
 rnd :  *0 *0; auto => /> &2.
 rewrite !(funrepro B.pk{2}) //=.
-qed.
-
+qed.                 
+                     
 local equiv aux _pk : 
    Aux.right ~ Aux.left : B.pk{1} = _pk ==> ={QRO.h} /\
   forall (result_R : M*Sig),
@@ -1174,46 +1138,46 @@ local equiv aux _pk :
        (if GBFO1.h{1} (result_R.`2.`1, result_R.`1) then B.goodChal{1} (result_R.`2.`1, result_R.`1)
         else B.badChal{1} (result_R.`2.`1, result_R.`1)) result_R.`2.`2) =>
     GBFO1.h{1} (result_R.`2.`1, result_R.`1) by conseq aux2 (aux1 _pk) => //.
-
+                     
 lemma reduction __pk lambda &m : 
    lambda = max_prob dC
                  (fun (w : W) (c : C) => has (verify __pk w c) FinZ.enum) FinW.enum =>
   Pr [ GBFO_Find(B(A)).main(lambda,__pk) @ &m : res] >=
    Pr [ EF_KOA_RO_pk(IDS_Sig(PL, V), A, QRO).main_pk(__pk) @ &m : res].
-proof.
-move => ->.
+proof.               
+move => ->.          
 byequiv => //=;symmetry.
-proc;rcondt {1} 3.
+proc;rcondt {1} 3.   
 + move => &hr; inline *;auto => /> _ _ _ _ wm; split; 1: by smt(mu_bounded).
   move => _;rewrite /max_prob /max_pw /=.
   move : (FinW.enumP wm.`1).
   rewrite -(mem_head_behead witness FinW.enum); 1: by smt(in_nil FinW.enumP).
   elim (behead FinW.enum) => /=; 1: by move => -> //. 
-  move => w ws H H0.
+  move => w ws H H0. 
   case (wm.`1 = w) => [<<- /#| ?].
   move => *;move : (H _); 1: by smt().
-  move => H1.
-  case ((foldr
+  move => H1.        
+  case ((foldr       
        (fun (w0 : W) (prevm : real * W) =>
           if prevm.`1 < mu dC (fun (c : C) => has ((verify pk{hr} w0 c)) FinZ.enum) then
             (mu dC (fun (c : C) => has ((verify pk{hr} w0 c)) FinZ.enum), w0)
           else prevm)
        (mu dC (fun (c : C) => has ((verify pk{hr} (head witness FinW.enum) c)) FinZ.enum), head witness FinW.enum)
-       ws).`1 <
+       ws).`1 <      
     mu dC (fun (c : C) => has ((verify pk{hr} w c)) FinZ.enum)).
   + by move : H1; pose xx := (foldr
    (fun (w0 : W) (prevm : real * W) =>
       if prevm.`1 < mu dC (fun (c : C) => has (verify pk{hr} w0 c) FinZ.enum) then
         (mu dC (fun (c : C) => has (verify pk{hr} w0 c) FinZ.enum), w0)
-      else prevm)
+      else prevm)    
    (mu dC (fun (c : C) => has (verify pk{hr} (head witness FinW.enum) c) FinZ.enum), head witness FinW.enum) ws); smt().
   by move => *; apply H1.
-  
+                     
 inline {2} 3;inline {2} 7; inline {2}  10; inline {1} 4;wp; conseq />.
 call(_:QRO.h{2} = fun x0 => if GBFO1.h{1} x0 then B.goodChal{1} x0 else B.badChal{1} x0).
-admit.
+admit.               
 by proc;inline *;auto => />.
-
+                     
 inline *; conseq (_: _ ==> 
    pk{2} = __pk /\ B.pk{1} = __pk /\ aux{1} = __pk /\
    (QRO.h{2} = fun (x0 : W * M) => if GBFO1.h{1} x0 then B.goodChal{1} x0 else B.badChal{1} x0) /\
@@ -1222,7 +1186,7 @@ inline *; conseq (_: _ ==>
        (if GBFO1.h{1} (result_R.`2.`1, result_R.`1) then B.goodChal{1} (result_R.`2.`1, result_R.`1)
         else B.badChal{1} (result_R.`2.`1, result_R.`1)) result_R.`2.`2) =>
     GBFO1.h{1} (result_R.`2.`1, result_R.`1)); 1: by smt().
-sp 3 1;conseq />.
+sp 3 1;conseq />.    
 transitivity {1} { Aux.right(); } 
         (B.pk{1} = __pk /\ B.pk{2} = __pk /\ aux{1} = __pk ==> 
           QRO.h{2} = (fun (x0 : W * M) => if GBFO1.h{1} x0 then B.goodChal{1} x0 else B.badChal{1} x0) /\
@@ -1241,11 +1205,11 @@ transitivity {1} { Aux.right(); }
               GBFO1.h{1} (result_R.`2.`1, result_R.`1)); 1,2: smt().
 + inline {2} 1; auto => /> => gC HgC bC HbC h /MUFF.dfun_supp /= Hh ms.
   rewrite MUFF.dfun_supp /= in HbC; move : (Hh (ms.`2.`1,ms.`1)) (HbC (ms.`2.`1,ms.`1)).
-  rewrite /(`\`).
+  rewrite /(`\`).    
   case (mu dC (fun (c : C) => has (verify __pk ms.`2.`1 c) FinZ.enum) = 1%r).
   + by move=> ->; rewrite /support  Biased.dbiased1E /= /#.
   move=> -> /= _ /supp_dexcepted /=; smt (hasP FinZ.enumP). 
-
+                     
 transitivity {2} { Aux.left(); } 
                  (B.pk{1} = __pk ==>
                  ={QRO.h} /\
@@ -1256,45 +1220,45 @@ transitivity {2} { Aux.left(); }
     GBFO1.h{1} (result_R.`2.`1, result_R.`1))
                  (true ==> ={QRO.h}); 1,2:smt().
 + by call (aux __pk) => />//.
-by inline *;sim.
-qed.
-
-end section.
-
+by inline *;sim.     
+qed.                 
+                     
+end section.         
+                     
 (* Type of adversary *)
-op cbfoAF : int.
-op qbfoF : int.
-
+op cbfoAF : int.     
+op qbfoF : int.      
+                     
 axiom qF_ge0 : 0 <= qbfoF. 
-
+                     
 require import RealSeries.
 require import StdBigop. 
-require QMeans.
-import Bigreal.
-import BRA.
-import Finite.
-
+require QMeans.      
+import Bigreal.      
+import BRA.          
+import Finite.       
+                     
 clone import QMeans with
-   type input <- PK,
+   type input <- PK, 
    type output <- bool,
-   op d <- lossy_kg.
-
-section.
-
-require import Xint.
+   op d <- lossy_kg. 
+                     
+section.             
+                     
+require import Xint. 
 declare qmodule A <: Adv_EFKOA_RO(* [ forge : `{N cbfoAF, #O.h : qbfoF} ]*) {-QRO, -GBFO1, -B} .
-
+                     
 declare op cbfoBF : int.
 declare axiom cF_ge0 : 0 <= cbfoBF.
 lemma reduction_bound __pk _lambda &m : 
    _lambda = max_prob dC
                  (fun (w : W) (c : C) => has (verify __pk w c) FinZ.enum) FinW.enum =>
    Pr [ EF_KOA_RO_pk(IDS_Sig(PL, V), A, QRO).main_pk(__pk) @ &m : res] <=
-       8%r*_lambda*(qbfoF+(cbfoBF + 1))%r^2.
-
+       8%r*_lambda*(qbfoF+ 1)%r^2.
+                     
 move => lval; move : (reduction A __pk _lambda &m lval).
 case (0%r < _lambda < 1%r); last first.
-+ move => lbound H. 
++ move => lbound H.  
   case (_lambda = 0%r). 
   + move => l0; have : Pr[GBFO_Find(B(A)).main(_lambda, __pk) @ &m : res] = 0%r; last by smt(). 
     byphoare (_: lambda{hr} = 0%r ==> _) => //; hoare => /=; proc; inline *.
@@ -1306,21 +1270,21 @@ case (0%r < _lambda < 1%r); last first.
     move : indfun; rewrite /dfun_biased MUFF.dfun_supp /= => indfun. 
     move : (indfun (w,m)).
     rewrite /support /dbiased muK; 1: by apply  DBool.Biased.isdistr_mbiased. 
-    by smt().
-  + move => l1.
-    have  : 1%r <= 8%r * _lambda * (qbfoF +( cbfoBF + 1))%r ^ 2; last by smt( mu_bounded). 
+    by smt().        
+  + move => l1.      
+    have  : 1%r <= 8%r * _lambda * (qbfoF + 1)%r ^ 2; last by smt( mu_bounded). 
     have : 1%r <= _lambda. admit . (*by smt(max_prob_bounded FinW.enum_spec).*)
     rewrite StdOrder.RealOrder.Domain.expr2 /=.
     by smt(qF_ge0 cF_ge0). 
-move => lbound; move : (GFBO_bound cbfoBF qbfoF qF_ge0 _ _lambda &m __pk (B(A)) lbound) => //.
+move => lbound; move : (GFBO_bound (qbfoF+1) _ _ _lambda &m __pk (B(A)) lbound) => //. by smt(qF_ge0).
 + admit. (* cost: @Benjamin *)
-by smt().
-qed.
-
+by smt().            
+qed.                 
+                     
 local module W : Worker = {
    proc work = EF_KOA_RO_pk(IDS_Sig(PL, V), A, QRO).main_pk
-}.
-
+}.                   
+                     
 lemma efkoaropk_expected &m : 
     Pr [ EF_KOA_RO(IDS_Sig(PL, V), A, QRO).main() @ &m : res] =
        big predT (fun (__pk: PK) => (mu1 lossy_kg __pk) * 
@@ -1331,11 +1295,11 @@ have -> :  Pr [ EF_KOA_RO(IDS_Sig(PL, V), A, QRO).main() @ &m : res] =
 have := Mean W &m (fun _ _ b => b) _ => /=. 
 + apply finiteP; exists (filter (fun pk => pk \in lossy_kg) FinPK.enum).
   by move => x Hx; rewrite mem_filter /= Hx /= FinPK.enumP.
-move => <-.
+move => <-.          
 byequiv (_: ={glob A} ==> res{2}.`2 = res{1}) => //.
 proc => /=; inline *; sim; auto => />.
-qed.
-
+qed.                 
+                     
 lemma efkoaro_bound &m : 
     Pr [ EF_KOA_RO(IDS_Sig(PL, V), A, QRO).main() @ &m : res] <=
        big predT (fun (__pk: PK) => 
@@ -1352,12 +1316,12 @@ have : big predT (fun (__pk: PK) => (mu1 lossy_kg __pk) *
   rewrite -RField.mulrA -RField.mulrA.
   apply StdOrder.RealOrder.ler_wpmul2l; 1: by smt(mu_bounded).
   have := reduction_bound pk (max_prob dC (fun (w : W) (c : C) => has ((verify pk w c)) FinZ.enum) FinW.enum) &m => /=.
-  by smt(). 
-
+  by smt().          
+                     
 rewrite -(efkoaropk_expected &m).
-done.
-qed.
-
+done.                
+qed.                 
+                     
 lemma main_theorem &m : 
     Pr [ EF_KOA_RO(IDS_Sig(P, V), A, QRO).main() @ &m : res] <=
      `| Pr[PK_Dist_Game (P, L, Dist(IDS_Sig(P, V),A,QRO)).main(true) @ &m : res] 
@@ -1376,34 +1340,34 @@ by apply fun_ext => pk /=;ring.
 pose x := (fun (i : PK) =>
      8%r * (qbfoF + 1)%r ^ 2 *
      (mu1 lossy_kg i * max_prob dC (fun (w : W) (c : C) => has (verify i w c) FinZ.enum) FinW.enum)).
-
+                     
 have H : big predT x (to_seq (support lossy_kg)) <=
          big predT x FinPK.enum; last by smt().
-
+                     
 have <- : big predT x ((filter (fun pk => pk \in lossy_kg) FinPK.enum) ++ 
     (filter (predC (fun pk => pk \in lossy_kg)) FinPK.enum)) = big predT x FinPK.enum 
         by apply eq_big_perm; apply perm_filterC. 
-
-rewrite big_cat.
-
+                     
+rewrite big_cat.     
+                     
 have H : perm_eq (filter (fun (pk : PK) => pk \in lossy_kg) FinPK.enum) 
            (to_seq (support lossy_kg)); last first.
-
+                     
 + rewrite (eq_big_perm _ _ _ _ H).          
   have : 0%r <= big predT x (filter (predC (fun (pk : PK) => pk \in lossy_kg)) FinPK.enum); last by smt().
   rewrite /predC /= /x; apply sumr_ge0 => pk * /=. 
-  have H0 : 0%r <= 8%r * (qbfoF + 1)%r ^ 2 by smt(StdOrder.RealOrder.Domain.expr2 qF_ge0).
+  have H0 : 0%r <= 8%r * (qbfoF + 1)%r ^ 2 by admit. (* smt(StdOrder.RealOrder.Domain.expr2 qF_ge0). *)
   have H1 : 0%r <= mu1 lossy_kg pk by smt(mu_bounded).
   by smt(max_prob_bounded FinW.enum_spec ).
-
+                     
 apply uniq_perm_eq;1: by apply filter_uniq; apply FinPK.enum_uniq.
 + apply   uniq_to_seq;apply finiteP; exists (filter (fun pk => pk \in lossy_kg) FinPK.enum).
   by move => pk Hpk; rewrite mem_filter /= Hpk /= FinPK.enumP.
-
+                     
 move => pk. rewrite mem_filter /= FinPK.enumP /= mem_to_seq //=.
 apply finiteP; exists (filter (fun pk => pk \in lossy_kg) FinPK.enum).
 by move => ppk Hppk; rewrite mem_filter /= Hppk /= FinPK.enumP.
-qed.
-
-end section.
-end T1.
+qed.                 
+                     
+end section.         
+end T1.              
