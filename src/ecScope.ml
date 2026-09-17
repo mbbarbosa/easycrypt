@@ -1754,13 +1754,13 @@ module Mod = struct
     let tysig, sig_ = TT.transmodtype (env scope) modty.pmty_pq in
     if tysig.mt_quantum <> `Classical then
       hierror "cannot declare a classical abstract module of quantum type";
-
+(*
     let has_qproc =
       List.exists (fun (Tys_function fs) ->
         fs.fs_quantum = `Quantum) sig_.mis_body
     in
     if has_qproc then
-      hierror "cannot declare a classical module of a type containing quantum procedures";
+      hierror "cannot declare a classical module of a type containing quantum procedures";*)
     
     let env' = EcEnv.Mod.bind_params (sig_.mis_params) (env scope) in
     TT.check_oicalls (loc m.ptm_name) sig_.mis_oinfos env';
@@ -1774,9 +1774,15 @@ module Mod = struct
   let qdeclare (scope : scope) (m : pqmodule_decl) =
     let modty = m.ptm_modty in
     let name  = EcIdent.create (unloc m.ptm_name) in
-    let tysig = fst (TT.transmodtype (env scope) modty.pmty_pq) in
+    let tysig, sig_ = TT.transmodtype (env scope) modty.pmty_pq in
     if tysig.mt_quantum <> `Quantum then
       hierror "cannot declare a quantum abstract module of classical type";
+    let has_qproc =
+      List.exists (fun (Tys_function fs) -> fs.fs_quantum = `Quantum)
+        sig_.mis_body
+    in
+    if has_qproc then
+      hierror "a quantum abstract module cannot contain quantum procedures";
     (* We modify tysig restrictions according if necessary. *)
     let tysig = trans_restr_for_modty (env scope) tysig modty.pmty_mem in
 

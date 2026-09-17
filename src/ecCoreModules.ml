@@ -479,7 +479,7 @@ and module_body =
   | ME_Alias       of int * EcPath.mpath
   | ME_Structure   of module_structure       (* Concrete modules. *)
   | ME_Decl        of mty_mr                 (* Abstract modules. *)
-  | ME_QDecl       of mty_mr_qb              
+  | ME_QDecl       of mty_mr            
 
 and module_structure = {
   ms_body      : module_item list;

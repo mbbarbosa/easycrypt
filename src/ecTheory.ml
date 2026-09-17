@@ -104,7 +104,10 @@ let module_expr_of_module_sig (name : EcIdent.t) ((mty, mr) : mty_mr) (sig_ : mo
   { me_quantum  = sig_.mis_quantum;
     me_name     = EcIdent.name name;
     me_params   = sig_.mis_params ;
-    me_body     = ME_Decl (mty, mr);
+    me_body     = (match mty.mt_quantum with
+                  | `Quantum -> ME_QDecl (mty, mr)
+                  | `Classical -> ME_Decl (mty, mr));
     me_comps    = tycomps;
     me_sig_body = sig_.mis_body;
     me_oinfos   = sig_.mis_oinfos; }
+   

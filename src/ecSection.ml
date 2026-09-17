@@ -375,11 +375,6 @@ and on_modty (aenv : aenv) (mty : module_type) =
 and on_mty_mr (aenv : aenv) ((mty, mr) : mty_mr) =
   on_modty aenv mty; on_restr aenv mr
 
-and on_mty_mr_qb (aenv : aenv) ((mty_mr , qb) : mty_mr_qb) =
-  on_mty_mr aenv mty_mr; on_qbounds aenv qb
-
-and on_qbounds (aenv : aenv) (qb : qbounds) =
-  List.iter (fun (x,_) -> on_xp aenv x) qb
 (* -------------------------------------------------------------------- *)
 and on_gbinding (aenv : aenv) (b : gty) =
   match b with
@@ -400,7 +395,7 @@ and on_module (aenv : aenv) (me : module_expr) =
   | ME_Alias (_, mp)  -> on_mp aenv mp
   | ME_Structure st   -> on_mstruct aenv st
   | ME_Decl mty       -> on_mty_mr aenv mty
-  | ME_QDecl mty_qb  -> on_mty_mr_qb aenv mty_qb
+  | ME_QDecl mty_qb  -> on_mty_mr aenv mty_qb
 (* -------------------------------------------------------------------- *)
 and on_mstruct (aenv : aenv) (st : module_structure) =
   List.iter (on_mstruct1 aenv) st.ms_body

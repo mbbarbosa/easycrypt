@@ -3483,7 +3483,7 @@ and pp_modbody ppe fmt (p, body) =
       Format.fprintf fmt "{@,  @[<v>%a@]@,}"
         (pp_list "@,@," (fun fmt i -> pp_moditem ppe fmt (p, i))) ms.ms_body
 
-  | ME_Decl mt |ME_QDecl (mt,_)->
+  | ME_Decl mt |ME_QDecl mt->
       Format.fprintf fmt "[Abstract :@;<1 2> %a@,]" (pp_mty_mr ppe) mt
 
 and pp_moditem ppe fmt (p, i) =

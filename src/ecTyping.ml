@@ -2527,7 +2527,7 @@ and transstruct1 (env : EcEnv.env) (st : pstructure_item located) =
       and result  = result |> omap (e_subst clsubst) in
       let stmt    = EcModules.stmt (List.flatten prelude @ stmt.s_node) in
       
-      if not (check_quantumness stmt is_qfun) then
+      if not (check_quantumness env stmt is_qfun) then
         tyerror st.pl_loc env InvalidInstrForQProc;
       (* Computes reads/writes/calls *)
       let uses = result |> ofold ((^~) se_inuse) (s_inuse stmt) in
@@ -3789,14 +3789,23 @@ and trans_codeoffset1 ?(memory: memory option) (env : EcEnv.env) (o : pcodeoffse
   | `ByOffset   i -> `ByOffset i
   | `ByPosition p -> `ByPosition (trans_codepos1 ?memory env p) 
 
-and check_quantumness stmt is_qfun =
+and check_quantumness env stmt is_qfun =
   let lv_has_no_glob lv =
     not (List.exists EcTypes.is_glob (EcModules.lv_to_list lv))
+  in
+  let called_from_qmodule p =
+    let p = EcEnv.NormMp.norm_xfun env p in
+    let m, _ = EcEnv.Mod.by_mpath p.EcPath.x_top env in
+    match m.EcModules.me_body with
+    | EcModules.ME_QDecl _ -> true
+    | _ -> false
   in
   let check_instr instr =
     match instr.i_node with
     | Sasgn (lv, _) -> lv_has_no_glob lv
-    | Scall (lv, _, _) -> ofold (fun lv b -> b && lv_has_no_glob lv) true lv
+    | Scall (lv, p, _) ->
+        ofold (fun lv b -> b && lv_has_no_glob lv) true lv
+        && not (called_from_qmodule p)
     | _ -> false
   in
   if is_qfun = `Quantum then List.for_all check_instr stmt.s_node else true
